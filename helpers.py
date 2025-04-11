@@ -70,7 +70,22 @@ async def export_to_files(drivers: Dict[str, Driver], track_name: str) -> str:
     lap_data.sort(key=lambda item: item[2].time_seconds)
 
     # F1 Points System (Top 10) + Fastest Lap Bonus
-    points_map = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1}
+    points_map = {
+        1: 25,
+        2: 18,
+        3: 15,
+        4: 12,
+        5: 10,
+        6: 9,
+        7: 8,
+        8: 7,
+        9: 6,
+        10: 5,
+        11: 4,
+        12: 3,
+        13: 2,
+        14: 1,
+    }
 
     # --- Export to CSV (Async) ---
     try:

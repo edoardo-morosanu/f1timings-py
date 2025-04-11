@@ -37,8 +37,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# --- Lifespan Management (Optional but good practice) ---
-# You can use this later to start/stop the UDP listener
+# --- Lifespan Management ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Application startup...")
