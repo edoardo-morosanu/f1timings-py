@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+python-multipart # Often needed by FastAPI for form data, good to have
+aiofiles # For async file operations during export

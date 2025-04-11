@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>F1 24 Admin Panel</title>
+    <style>
+      body {
+        font-family: "Arial", sans-serif;
+        background-color: #1a1a1a;
+        color: white;
+        padding: 30px;
+        margin: 0;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      h1 {
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 10px;
+        letter-spacing: 1px;
+      }
+
+      .admin-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+      }
+
+      .admin-section {
+        background-color: #2a2a2a;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 30px;
+      }
+
+      .admin-section h2 {
+        font-size: 24px;
+        margin-top: 0;
+        margin-bottom: 20px;
+        color: #f3f4f6;
+        border-bottom: 1px solid #3a3a3a;
+        padding-bottom: 10px;
+      }
+
+      .input-group {
+        margin-bottom: 20px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: #d1d5db;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 4px;
+        border: 1px solid #4b5563;
+        background-color: #374151;
+        color: white;
+        font-size: 16px;
+      }
+
+      input[type="text"] {
+        width: 96%;
+      }
+
+      button {
+        padding: 12px 24px;
+        border-radius: 4px;
+        border: none;
+        background-color: #623e8b;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.2s;
+      }
+
+      button:hover {
+        background-color: #7b4dba;
+      }
+
+      button.secondary {
+        background-color: #4b5563;
+      }
+
+      button.secondary:hover {
+        background-color: #6b7280;
+      }
+
+      button.danger {
+        background-color: #dc2626;
+      }
+
+      button.danger:hover {
+        background-color: #ef4444;
+      }
+
+      .button-group {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-start;
+      }
+
+      .lap-records {
+        margin-top: 20px;
+        border: 1px solid #3a3a3a;
+        border-radius: 4px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #3a3a3a;
+      }
+
+      th {
+        background-color: #374151;
+        color: #f3f4f6;
+      }
+
+      tr:hover {
+        background-color: #374151;
+      }
+
+      .status-message {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 4px;
+      }
+
+      .status-success {
+        background-color: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+      }
+
+      .status-error {
+        background-color: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+      }
+
+      .track-settings {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .track-settings input {
+        flex: 1;
+      }
+
+      .export-section {
+        margin-top: 30px;
+      }
+
+      .current-track {
+        font-size: 18px;
+        margin-bottom: 20px;
+        padding: 10px;
+        background-color: #374151;
+        border-radius: 4px;
+      }
+
+      .current-track span {
+        font-weight: bold;
+        color: #fcd34d;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>F1 24 Admin Panel</h1>
+      </header>
+
+      <div class="admin-section">
+        <h2>Track Settings</h2>
+        <div class="current-track" id="currentTrackDisplay">
+          Current Track: <span id="currentTrack">Not set</span>
+        </div>
+        <div class="track-settings">
+          <input
+            type="text"
+            id="trackNameInput"
+            placeholder="Enter track name (e.g., Silverstone, Monaco)"
+          />
+          <button id="setTrackBtn">Set Track</button>
+        </div>
+        <div id="trackStatus" class="status-message"></div>
+      </div>
+
+      <div class="admin-grid">
+        <div class="admin-section">
+          <h2>Add Lap Time</h2>
+          <div class="input-group">
+            <label for="driverName">Driver Name</label>
+            <input
+              type="text"
+              id="driverName"
+              placeholder="Enter driver name"
+            />
+          </div>
+          <div class="input-group">
+            <label for="teamSelect">Team</label>
+            <select id="teamSelect">
+              <option value="RedBull">Red Bull</option>
+              <option value="McLaren">McLaren</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label for="lapTime">Lap Time (format: mm.ss.sss or seconds)</label>
+            <input
+              type="text"
+              id="lapTime"
+              placeholder="Example: 1.23.456 or 43.456"
+            />
+          </div>
+          <div class="button-group">
+            <button id="addLapBtn">Add Lap Time</button>
+            <button id="clearLapBtn" class="secondary">Clear Form</button>
+          </div>
+          <div id="addLapStatus" class="status-message"></div>
+        </div>
+
+        <div class="admin-section">
+          <h2>Recent Lap Times</h2>
+          <div class="lap-records">
+            <table id="lapTable">
+              <thead>
+                <tr>
+                  <th>Driver</th>
+                  <th>Team</th>
+                  <th>Time</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="lapTableBody">
+                <!-- Lap times will be added here dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-section export-section">
+        <h2>Export Data</h2>
+        <p>Export all lap times for the current track as a JSON file.</p>
+        <button id="exportBtn">Export Lap Times</button>
+        <div id="exportStatus" class="status-message"></div>
+      </div>
+    </div>
+
+    <script>
+      // Global variables
+      let allLapTimes = [];
+      let currentTrack = "";
+
+      // Document ready function
+      document.addEventListener("DOMContentLoaded", () => {
+        // Set up event listeners
+        document
+          .getElementById("setTrackBtn")
+          .addEventListener("click", setTrackName);
+        document
+          .getElementById("addLapBtn")
+          .addEventListener("click", addLapTime);
+        document
+          .getElementById("clearLapBtn")
+          .addEventListener("click", clearLapForm);
+        document
+          .getElementById("exportBtn")
+          .addEventListener("click", exportLapTimes);
+
+        // Load initial data
+        fetchCurrentTrack();
+        fetchLapTimes();
+      });
+
+      // Fetch current track name
+      async function fetchCurrentTrack() {
+        try {
+          const response = await fetch("/api/track");
+          if (response.ok) {
+            const data = await response.json();
+            currentTrack = data.name || "";
+            updateTrackDisplay();
+          }
+        } catch (error) {
+          console.error("Error fetching track name:", error);
+        }
+      }
+
+      // Update the track name display
+      function updateTrackDisplay() {
+        const trackElement = document.getElementById("currentTrack");
+        if (currentTrack) {
+          trackElement.textContent = currentTrack;
+          document.getElementById("currentTrackDisplay").style.display =
+            "block";
+        } else {
+          trackElement.textContent = "Not set";
+          document.getElementById("currentTrackDisplay").style.display =
+            "block";
+        }
+      }
+
+      // Set track name
+      async function setTrackName() {
+        const trackInput = document.getElementById("trackNameInput");
+        const trackName = trackInput.value.trim();
+        const statusElement = document.getElementById("trackStatus");
+
+        if (!trackName) {
+          showStatus(statusElement, "Please enter a track name", false);
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/track", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name: trackName }),
+          });
+
+          if (response.ok) {
+            currentTrack = trackName;
+            updateTrackDisplay();
+            localStorage.setItem("currentTrack", currentTrack);
+            showStatus(statusElement, `Track set to: ${trackName}`, true);
+            trackInput.value = "";
+          } else {
+            showStatus(statusElement, "Failed to set track name", false);
+          }
+        } catch (error) {
+          console.error("Error setting track name:", error);
+          showStatus(statusElement, "Error setting track name", false);
+        }
+      }
+
+      // Fetch lap times
+      async function fetchLapTimes() {
+        try {
+          const response = await fetch("/api/drivers");
+          if (response.ok) {
+            const data = await response.json();
+            updateLapTimesTable(data);
+          } else {
+            console.error("Failed to fetch lap times");
+          }
+        } catch (error) {
+          console.error("Error fetching lap times:", error);
+        }
+      }
+
+      // Add new lap time
+      async function addLapTime() {
+        const driverInput = document.getElementById("driverName");
+        const teamSelect = document.getElementById("teamSelect");
+        const lapTimeInput = document.getElementById("lapTime");
+        const statusElement = document.getElementById("addLapStatus");
+
+        const driverName = driverInput.value.trim();
+        const team = teamSelect.value;
+        const lapTime = lapTimeInput.value.trim();
+
+        if (!driverName || !lapTime) {
+          showStatus(
+            statusElement,
+            "Please enter driver name and lap time",
+            false
+          );
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/laptime", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: driverName,
+              team: team,
+              time: lapTime,
+            }),
+          });
+
+          if (response.ok) {
+            showStatus(statusElement, "Lap time added successfully", true);
+            clearLapForm();
+            fetchLapTimes(); // Refresh the table
+          } else {
+            showStatus(statusElement, "Failed to add lap time", false);
+          }
+        } catch (error) {
+          console.error("Error adding lap time:", error);
+          showStatus(statusElement, "Error adding lap time", false);
+        }
+      }
+
+      // Clear lap form
+      function clearLapForm() {
+        document.getElementById("driverName").value = "";
+        document.getElementById("lapTime").value = "";
+        document.getElementById("addLapStatus").innerHTML = "";
+      }
+
+      // Update lap times table
+      function updateLapTimesTable(drivers) {
+        const tableBody = document.getElementById("lapTableBody");
+        tableBody.innerHTML = "";
+
+        // Flatten all lap times for all drivers
+        allLapTimes = [];
+
+        for (const [name, driver] of Object.entries(drivers)) {
+          for (const lap of driver.lap_times) {
+            allLapTimes.push({
+              driver: name,
+              team: driver.team,
+              time: lap.time,
+              isFastest: lap.is_fastest,
+            });
+          }
+        }
+
+        // Sort by most recent first (assuming newer laps are at the end of the array)
+        allLapTimes.reverse();
+
+        // Populate the table
+        for (const lap of allLapTimes) {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+                    <td>${lap.driver}</td>
+                    <td>${lap.team}</td>
+                    <td>${formatTime(lap.time)}</td>
+                    <td>
+                        <button onclick="deleteLapTime('${lap.driver}', '${
+            lap.time
+          }')" class="danger">Delete</button>
+                    </td>
+                `;
+          tableBody.appendChild(row);
+        }
+      }
+
+      // Delete lap time
+      async function deleteLapTime(driver, time) {
+        try {
+          const response = await fetch("/api/laptime", {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: driver,
+              time: time,
+            }),
+          });
+
+          if (response.ok) {
+            fetchLapTimes(); // Refresh the table
+          } else {
+            console.error("Failed to delete lap time");
+          }
+        } catch (error) {
+          console.error("Error deleting lap time:", error);
+        }
+      }
+
+      // Export lap times
+      async function exportLapTimes() {
+        const statusElement = document.getElementById("exportStatus");
+
+        if (!currentTrack) {
+          showStatus(
+            statusElement,
+            "Please set a track name before exporting",
+            false
+          );
+          return;
+        }
+
+        // Clear previous status/buttons
+        statusElement.innerHTML = "Exporting...";
+        statusElement.className = "status-message"; // Reset class
+
+        try {
+          // Call the server-side export endpoint
+          const response = await fetch("/api/export"); // Changed from /api/drivers
+          const result = await response.json(); // Parse the ExportResponse
+
+          if (response.ok && result.success) {
+            // Display success message from the server, including the filename
+            showStatus(
+              statusElement,
+              `Export successful! Files saved on server. CSV: ${result.filename}`,
+              true
+            );
+            // No client-side download needed here
+          } else {
+            // Display error message from the server or a generic one
+            const errorMessage = result.message || "Failed to export lap times";
+            showStatus(statusElement, errorMessage, false);
+          }
+        } catch (error) {
+          console.error("Error calling export API:", error);
+          showStatus(statusElement, "Error occurred during export", false);
+        }
+      }
+
+      // Helper to show status messages
+      function showStatus(element, message, isSuccess) {
+        element.textContent = message;
+        element.className =
+          "status-message " + (isSuccess ? "status-success" : "status-error");
+
+        // Optional: Clear message after some time, but maybe keep export status visible longer
+        setTimeout(() => {
+          element.textContent = "";
+          element.className = "status-message";
+        }, 200000);
+      }
+
+      // Helper to show status messages
+      function showStatus(element, message, isSuccess) {
+        element.textContent = message;
+        element.className =
+          "status-message " + (isSuccess ? "status-success" : "status-error");
+
+        // Clear message after 5 seconds
+        setTimeout(() => {
+          element.textContent = "";
+          element.className = "status-message";
+        }, 5000);
+      }
+
+      // Parse time string to seconds for accurate sorting
+      function parseTimeToSeconds(timeString) {
+        if (timeString.includes(":")) {
+          const [minutes, seconds] = timeString.split(":");
+          return parseInt(minutes) * 60 + parseFloat(seconds);
+        } else if (timeString.includes(".")) {
+          const parts = timeString.split(".");
+          if (parts.length === 3) {
+            return (
+              parseInt(parts[0]) * 60 +
+              parseInt(parts[1]) +
+              parseFloat(`0.${parts[2]}`)
+            );
+          } else if (parts.length === 2) {
+            return parseFloat(timeString);
+          }
+        }
+        return parseFloat(timeString);
+      }
+
+      // Format time for display
+      function formatTime(timeString) {
+        // If time already contains a colon, it's already formatted
+        if (timeString.includes(":")) {
+          return timeString;
+        }
+        // If time has dots instead of colons, convert format
+        else if (timeString.includes(".")) {
+          const parts = timeString.split(".");
+          if (parts.length === 3) {
+            // Format: m.ss.sss -> m:ss.sss
+            return `${parts[0]}:${parts[1]}.${parts[2]}`;
+          } else if (parts.length === 2) {
+            // Format: ss.sss
+            return timeString;
+          }
+        } else {
+          // Simple seconds value
+          const secondsValue = parseFloat(timeString);
+          const minutes = Math.floor(secondsValue / 60);
+          const seconds = (secondsValue % 60).toFixed(3);
+
+          if (minutes > 0) {
+            const secondsFormatted = seconds < 10 ? `0${seconds}` : seconds;
+            return `${minutes}:${secondsFormatted}`;
+          } else {
+            return seconds;
+          }
+        }
+        return timeString;
+      }
+    </script>
+  </body>
+</html>
