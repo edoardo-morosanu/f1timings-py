@@ -1,493 +1,552 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>F1 24 Lap Times Display</title>
-    <style>
-      body {
-        font-family: "Titillium Web", "Arial", sans-serif;
-        background-color: #15151e;
-        color: #ffffff;
-        padding: 30px;
-        margin: 0;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F1 24 Lap Times Display</title>
+  <style>
+    body {
+      overflow-y: hidden;
+      font-family: "Titillium Web", "Arial", sans-serif;
+      background-color: #15151e;
+      color: #ffffff;
+      padding: 30px;
+      margin: 0;
+    }
 
-      .container {
-        max-width: 1500px;
-        margin: 0 auto;
-      }
+    .container {
+      max-width: 1500px;
+      margin: 0 auto;
+    }
 
-      .image-container {
-        display: flex;
-        justify-content: center;
-        gap: 20px;
-        margin-bottom: 10px;
-      }
+    /* Removed .image-container styles */
 
-      .image-container img {
-        height: 120px;
-        width: 260px;
-        object-fit: contain;
-        border-radius: 4px;
-      }
+    header {
+      display: flex; /* Make header a flex container */
+      align-items: center; /* Vertically align items */
+      justify-content: space-between; /* Space items out */
+      text-align: center;
+      margin-bottom: 40px;
+    }
 
-      header {
-        text-align: center;
-        margin-bottom: 40px;
-      }
+    header img {
+      height: 100px; /* Adjusted height slightly */
+      width: auto; /* Let width adjust automatically */
+      max-width: 220px; /* Max width to prevent excessive size */
+      object-fit: contain;
+      border-radius: 4px;
+      flex-shrink: 0; /* Prevent images from shrinking */
+    }
 
-      h1 {
-        font-size: 36px;
-        font-weight: 800;
-        margin-bottom: 30px;
-        letter-spacing: 2px;
-      }
+    h1 {
+      font-size: 36px;
+      font-weight: 800;
+      margin: 0 20px; /* Add horizontal margin */
+      letter-spacing: 2px;
+      flex-grow: 1; /* Allow title to take available space */
+      text-align: center; /* Ensure text inside h1 is centered */
+    }
 
-      .track-title {
-        color: #e10600; /* Keep F1 red for track name */
-      }
+    .track-title {
+      color: #e10600; /* Keep F1 red for track name */
+    }
 
-      .fastest-lap-container {
-        background-color: #1f1f2c;
-        border-radius: 8px;
-        padding: 20px;
-        text-align: center;
-        margin-bottom: 40px;
-        border-left: 5px solid #e10600; /* Purple border for fastest lap */
-        box-shadow: 0 4px 12px rgba(113, 0, 225, 0.2);
-        animation: pulse 2s infinite;
-      }
+    .fastest-lap-container {
+      background-color: #1f1f2c;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 40px;
+      border-left: 5px solid #7100e1; /* CORRECTED: Purple border for fastest lap */
+      box-shadow: 0 4px 12px rgba(113, 0, 225, 0.3); /* Slightly adjusted shadow */
+      animation: pulse 1.8s infinite; /* Slightly faster pulse */
+    }
 
-      @keyframes pulse {
-        0% {
-          box-shadow: 0 0 8px rgba(225, 6, 0, 0.4);
-        }
-        50% {
-          box-shadow: 0 0 16px rgba(225, 6, 0, 0.6);
-        }
-        100% {
-          box-shadow: 0 0 8px rgba(225, 6, 0, 0.4);
-        }
+    @keyframes pulse {
+      0% {
+        /* CORRECTED: Purple shadow, slightly stronger */
+        box-shadow: 0 0 10px rgba(113, 0, 225, 0.5);
+        border-left-color: #8a2be2; /* Slightly brighter purple on pulse */
       }
-
-      .fastest-lap-label {
-        color: #7100e1; /* Purple for fastest lap label */
-        text-transform: uppercase;
-        font-size: 16px;
-        font-weight: 600;
-        margin-bottom: 10px;
-        letter-spacing: 1px;
+      50% {
+        /* CORRECTED: Purple shadow, more intense */
+        box-shadow: 0 0 20px rgba(113, 0, 225, 0.8);
+        border-left-color: #9d4edd; /* Even brighter purple on pulse */
       }
-
-      .fastest-lap-driver {
-        font-size: 28px;
-        font-weight: bold;
-        margin-bottom: 10px;
+      100% {
+        /* CORRECTED: Purple shadow, slightly stronger */
+        box-shadow: 0 0 10px rgba(113, 0, 225, 0.5);
+        border-left-color: #8a2be2; /* Slightly brighter purple on pulse */
       }
+    }
 
-      .fastest-lap-time {
-        font-family: "Roboto Mono", "Courier New", monospace;
-        color: #7100e1; /* Purple for fastest lap time */
-        font-size: 32px;
-        font-weight: 700;
-      }
+    .fastest-lap-label {
+      color: #9d4edd; /* Slightly brighter purple */
+      text-transform: uppercase;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+    }
 
-      .teams-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 40px;
-      }
+    .fastest-lap-driver {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
 
-      .team-container {
-        padding: 20px;
-        border-radius: 8px;
-        background-color: #1f1f2c;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-      }
+    .fastest-lap-time {
+      font-family: "Roboto Mono", "Courier New", monospace;
+      color: #9d4edd; /* Slightly brighter purple */
+      font-size: 32px;
+      font-weight: 700;
+    }
 
-      .team-header {
-        font-size: 24px;
-        font-weight: bold;
-        padding-bottom: 10px;
-        margin-bottom: 20px;
-        border-bottom-width: 2px;
-        border-bottom-style: solid;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
+    .teams-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+    }
 
-      .team-header img {
-        height: 30px;
-        margin-right: 10px;
-      }
+    .team-container {
+      padding: 20px;
+      border-radius: 8px;
+      background-color: #1f1f2c;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
 
-      .redbull .team-header {
-        color: #0600ef;
-        border-bottom-color: #0600ef;
-      }
+    .team-header {
+      font-size: 24px;
+      font-weight: bold;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      border-bottom-width: 2px;
+      border-bottom-style: solid;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-      .mclaren .team-header {
-        color: #ff8700;
-        border-bottom-color: #ff8700;
-      }
+    /* Removed team-header img styles as they are not used here */
 
-      .lap-item {
-        padding: 15px;
-        margin-bottom: 15px;
-        border-radius: 4px;
-        background-color: #27273e;
-        transition: all 0.3s ease;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
+    .redbull .team-header {
+      color: #0600ef;
+      border-bottom-color: #0600ef;
+    }
 
-      .lap-item.highlight {
-        background-color: #20003a; /* Darker purple for highlighted laps */
-        transform: scale(1.02);
-        box-shadow: 0 2px 8px rgba(113, 0, 225, 0.4);
-        border-left: 4px solid #7100e1; /* Purple border for highlighted lap */
-      }
+    .mclaren .team-header {
+      color: #ff8700;
+      border-bottom-color: #ff8700;
+    }
 
-      .driver-name {
-        font-weight: bold;
-        font-size: 24px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 60%;
-      }
+    .lap-item {
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+      background-color: #27273e;
+      transition: all 0.3s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-      .lap-time {
-        font-family: "Roboto Mono", "Courier New", monospace;
-        font-size: 24px;
-        letter-spacing: 1px;
-      }
+    .lap-item.highlight {
+      background-color: #3a2050; /* Lighter purple background for more contrast */
+      transform: scale(1.02);
+      box-shadow: 0 2px 10px rgba(113, 0, 225, 0.5); /* Enhanced shadow */
+      border-left: 5px solid #9d4edd; /* Brighter and thicker purple border */
+    }
 
-      .no-laps {
-        color: #8a8a9b;
-        font-style: italic;
-        padding: 20px;
-        text-align: center;
-      }
+    .driver-name {
+      font-weight: bold;
+      font-size: 24px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 60%; /* Adjusted max-width if needed */
+    }
 
-      footer {
-        margin-top: 40px;
-        text-align: center;
-        font-size: 14px;
-        color: #8a8a9b;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="image-container">
-        <img src="img/NHLStenden.png" alt="NHLStenden Logo" />
-        <img src="img/HBOSport.png" alt="HBO Sport Logo" />
-      </div>
-      <header>
-        <h1>
-          F1 <span id="trackTitle" class="track-title">24</span> LAP TIMES
-        </h1>
+    .lap-time {
+      font-family: "Roboto Mono", "Courier New", monospace;
+      font-size: 24px;
+      letter-spacing: 1px;
+    }
 
-        <div
+    .no-laps {
+      color: #8a8a9b;
+      font-style: italic;
+      padding: 20px;
+      text-align: center;
+    }
+
+    footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 14px;
+      color: #8a8a9b;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- Removed image-container div -->
+  <header>
+    <!-- Image moved inside header -->
+    <img src="img/NHLStenden.png" alt="NHLStenden Logo" />
+
+    <h1>
+      F1(24) <span id="trackTitle" class="track-title">24</span> LAP TIMES
+    </h1>
+
+    <!-- Image moved inside header -->
+    <img src="img/HBOSport.png" alt="HBO Sport Logo" />
+
+  </header>
+
+  <!-- Fastest Lap Container remains below header -->
+  <div
           class="fastest-lap-container"
           id="fastestLap"
           style="display: none"
-        >
-          <div class="fastest-lap-label">Fastest Lap</div>
-          <div class="fastest-lap-driver" id="fastestDriver"></div>
-          <div class="fastest-lap-time" id="fastestTime"></div>
-        </div>
-      </header>
+  >
+    <div class="fastest-lap-label">Fastest Lap</div>
+    <div class="fastest-lap-driver" id="fastestDriver"></div>
+    <div class="fastest-lap-time" id="fastestTime"></div>
+  </div>
 
-      <div class="teams-grid">
-        <div class="team-container redbull">
-          <div class="team-header">
-            <div>RED BULL</div>
-          </div>
-          <div id="redbullLaps">
-            <div class="no-laps">No lap times recorded</div>
-          </div>
-        </div>
 
-        <div class="team-container mclaren">
-          <div class="team-header">
-            <div>MCLAREN</div>
-          </div>
-          <div id="mclarenLaps">
-            <div class="no-laps">No lap times recorded</div>
-          </div>
-        </div>
+  <div class="teams-grid">
+    <div class="team-container redbull">
+      <div class="team-header">
+        <div>RED BULL</div>
       </div>
-
-      <footer>
-        <p>© 2025 F1 24 Timing System</p>
-      </footer>
+      <div id="redbullLaps">
+        <div class="no-laps">No lap times recorded</div>
+      </div>
     </div>
 
-    <script>
-      let currentTrack = "";
-      let allDriverData = {};
+    <div class="team-container mclaren">
+      <div class="team-header">
+        <div>MCLAREN</div>
+      </div>
+      <div id="mclarenLaps">
+        <div class="no-laps">No lap times recorded</div>
+      </div>
+    </div>
+  </div>
 
-      // Setup event listeners when the page loads
-      document.addEventListener("DOMContentLoaded", () => {
-        // Load track name from API or localStorage
-        fetchTrackName();
+  <footer>
+    <p>© 2025 F1 24 Timing System</p>
+  </footer>
+</div>
 
-        // Start the data refresh
-        loadDisplayData();
-        setInterval(loadDisplayData, 2000);
-      });
+<script>
+  let currentTrack = "";
+  let allDriverData = {};
 
-      async function fetchTrackName() {
-        try {
-          // Try to fetch track name from API
-          const response = await fetch("/api/track");
-          if (response.ok) {
-            const data = await response.json();
-            currentTrack = data.name;
-          } else {
-            // Fallback to localStorage
-            const savedTrack = localStorage.getItem("currentTrack");
-            if (savedTrack) {
-              currentTrack = savedTrack;
-            }
-          }
+  // Setup event listeners when the page loads
+  document.addEventListener("DOMContentLoaded", () => {
+    // Load track name from API or localStorage
+    fetchTrackName();
 
-          // Update the display with whatever track name we found
-          updateTrackTitle();
-        } catch (error) {
-          console.error("Error fetching track name:", error);
+    // Start the data refresh
+    loadDisplayData();
+    setInterval(loadDisplayData, 2000);
+  });
 
-          // Fallback to localStorage if API fails
-          const savedTrack = localStorage.getItem("currentTrack");
-          if (savedTrack) {
-            currentTrack = savedTrack;
-            updateTrackTitle();
-          }
+  async function fetchTrackName() {
+    try {
+      // Try to fetch track name from API
+      const response = await fetch("/api/track");
+      if (response.ok) {
+        const data = await response.json();
+        currentTrack = data.name;
+      } else {
+        // Fallback to localStorage
+        const savedTrack = localStorage.getItem("currentTrack");
+        if (savedTrack) {
+          currentTrack = savedTrack;
         }
       }
 
-      function updateTrackTitle() {
-        const titleElement = document.getElementById("trackTitle");
-        if (currentTrack) {
-          titleElement.textContent = currentTrack.toUpperCase();
-          document.title = `F1 ${currentTrack} Lap Times`;
-        } else {
-          titleElement.textContent = "24";
-          document.title = "F1 24 Lap Times Display";
+      // Update the display with whatever track name we found
+      updateTrackTitle();
+    } catch (error) {
+      console.error("Error fetching track name:", error);
+
+      // Fallback to localStorage if API fails
+      const savedTrack = localStorage.getItem("currentTrack");
+      if (savedTrack) {
+        currentTrack = savedTrack;
+        updateTrackTitle();
+      }
+    }
+  }
+
+  function updateTrackTitle() {
+    const titleElement = document.getElementById("trackTitle");
+    if (currentTrack) {
+      titleElement.textContent = currentTrack.toUpperCase();
+      document.title = `F1 ${currentTrack} Lap Times`;
+    } else {
+      titleElement.textContent = "24";
+      document.title = "F1 24 Lap Times Display";
+    }
+  }
+
+  async function loadDisplayData() {
+    try {
+      const response = await fetch("/api/drivers");
+      const drivers = await response.json();
+
+      // Store the complete driver data
+      allDriverData = drivers;
+
+      // Process driver data to keep only fastest lap per driver
+      const processedDrivers = processDriverData(drivers);
+
+      // Group drivers by team
+      const redbullDrivers = {};
+      const mclarenDrivers = {};
+      let fastestLap = null;
+      let fastestDriver = null;
+      let fastestTeam = null;
+
+      for (const [name, driver] of Object.entries(processedDrivers)) {
+        if (driver.team === "RedBull") {
+          redbullDrivers[name] = driver;
+        } else if (driver.team === "McLaren") {
+          mclarenDrivers[name] = driver;
+        }
+
+        // Find fastest lap overall by checking the 'is_fastest' flag
+        // The flag should already be correctly set in processDriverData if it's the overall fastest
+        if (driver.lap_times.length > 0 && driver.lap_times[0].is_fastest) {
+          fastestLap = formatTime(driver.lap_times[0].time);
+          fastestDriver = truncateName(driver.name, 20);
+          fastestTeam = driver.team.toLowerCase();
         }
       }
 
-      async function loadDisplayData() {
-        try {
-          const response = await fetch("/api/drivers");
-          const drivers = await response.json();
 
-          // Store the complete driver data
-          allDriverData = drivers;
+      // Update fastest lap display
+      const fastestLapContainer = document.getElementById("fastestLap");
+      const fastestDriverElement = document.getElementById("fastestDriver");
+      const fastestTimeElement = document.getElementById("fastestTime");
 
-          // Process driver data to keep only fastest lap per driver
-          const processedDrivers = processDriverData(drivers);
-
-          // Group drivers by team
-          const redbullDrivers = {};
-          const mclarenDrivers = {};
-          let fastestLap = null;
-          let fastestDriver = null;
-          let fastestTeam = null;
-
-          for (const [name, driver] of Object.entries(processedDrivers)) {
-            if (driver.team === "RedBull") {
-              redbullDrivers[name] = driver;
-            } else if (driver.team === "McLaren") {
-              mclarenDrivers[name] = driver;
-            }
-
-            // Find fastest lap overall
-            driver.lap_times.forEach((lap) => {
-              if (lap.is_fastest) {
-                fastestLap = formatTime(lap.time);
-                fastestDriver = truncateName(driver.name, 20);
-                fastestTeam = driver.team.toLowerCase();
-              }
-            });
-          }
-
-          // Update fastest lap display
-          const fastestLapContainer = document.getElementById("fastestLap");
-          const fastestDriverElement = document.getElementById("fastestDriver");
-          const fastestTimeElement = document.getElementById("fastestTime");
-
-          if (fastestLap && fastestDriver) {
-            fastestLapContainer.style.display = "block";
-            fastestDriverElement.textContent = fastestDriver;
-            fastestTimeElement.textContent = fastestLap;
-          } else {
-            fastestLapContainer.style.display = "none";
-          }
-
-          // Update Red Bull laps
-          updateTeamDisplay(
-            "redbullLaps",
-            redbullDrivers,
-            fastestDriver,
-            "redbull"
-          );
-
-          // Update McLaren laps
-          updateTeamDisplay(
-            "mclarenLaps",
-            mclarenDrivers,
-            fastestDriver,
-            "mclaren"
-          );
-        } catch (error) {
-          console.error("Error loading display data:", error);
-        }
+      if (fastestLap && fastestDriver) {
+        fastestLapContainer.style.display = "block";
+        fastestDriverElement.textContent = fastestDriver;
+        fastestTimeElement.textContent = fastestLap;
+      } else {
+        fastestLapContainer.style.display = "none";
       }
 
-      // Process driver data to keep only fastest lap per driver and sort by time
-      function processDriverData(drivers) {
-        const processed = {};
+      // Update Red Bull laps
+      updateTeamDisplay(
+              "redbullLaps",
+              redbullDrivers,
+              fastestDriver, // Pass fastest driver name to highlight function if needed elsewhere
+              "redbull"
+      );
 
-        for (const [name, driver] of Object.entries(drivers)) {
-          // Create a copy of the driver object
-          processed[name] = { ...driver };
+      // Update McLaren laps
+      updateTeamDisplay(
+              "mclarenLaps",
+              mclarenDrivers,
+              fastestDriver, // Pass fastest driver name
+              "mclaren"
+      );
+    } catch (error) {
+      console.error("Error loading display data:", error);
+    }
+  }
 
-          // If there are multiple lap times, keep only the fastest
-          if (driver.lap_times.length > 0) {
-            // Sort lap times by time value (ascending)
-            const sortedLaps = [...driver.lap_times].sort((a, b) => {
-              const timeA = parseTimeToSeconds(a.time);
-              const timeB = parseTimeToSeconds(b.time);
-              return timeA - timeB;
-            });
+  // Process driver data to keep only fastest lap per driver and sort by time
+  function processDriverData(drivers) {
+    const processed = {};
+    let overallFastestTimeValue = Infinity;
+    let overallFastestLapKey = null; // Store as "driverName_lapIndex"
 
-            // Keep only the fastest lap
-            processed[name].lap_times = [sortedLaps[0]];
-
-            // Mark this lap as fastest if it's the driver's best time
-            processed[name].lap_times[0].is_fastest = sortedLaps[0].is_fastest;
+    // First pass: find the overall fastest lap time value across all drivers
+    for (const [name, driver] of Object.entries(drivers)) {
+      if (driver.lap_times.length > 0) {
+        driver.lap_times.forEach((lap, index) => {
+          const timeValue = parseTimeToSeconds(lap.time);
+          if (timeValue < overallFastestTimeValue) {
+            overallFastestTimeValue = timeValue;
+            overallFastestLapKey = `${name}_${index}`; // Unique key for the fastest lap
           }
-        }
-
-        return processed;
+        });
       }
+    }
 
-      // Parse time string to seconds for accurate sorting
-      function parseTimeToSeconds(timeString) {
-        if (timeString.includes(":")) {
-          const [minutes, seconds] = timeString.split(":");
-          return parseInt(minutes) * 60 + parseFloat(seconds);
-        } else if (timeString.includes(".")) {
-          const parts = timeString.split(".");
-          if (parts.length === 3) {
-            return (
-              parseInt(parts[0]) * 60 +
-              parseInt(parts[1]) +
-              parseFloat(`0.${parts[2]}`)
-            );
-          } else if (parts.length === 2) {
-            return parseFloat(timeString);
-          }
-        }
+    // Second pass: process each driver, keep their best lap, and mark the overall fastest
+    for (const [name, driver] of Object.entries(drivers)) {
+      // Create a copy of the driver object
+      processed[name] = { ...driver, lap_times: [] }; // Initialize lap_times as empty
+
+      if (driver.lap_times.length > 0) {
+        // Create a temporary array of laps with their original index and time value
+        const lapsWithData = driver.lap_times.map((lap, index) => ({
+          ...lap,
+          originalIndex: index,
+          timeValue: parseTimeToSeconds(lap.time)
+        }));
+
+        // Sort driver's laps by time value (ascending)
+        lapsWithData.sort((a, b) => a.timeValue - b.timeValue);
+
+        // Keep only the fastest lap for this driver
+        const fastestLapForDriver = lapsWithData[0];
+
+        // Check if this driver's fastest lap is the overall fastest lap
+        const currentLapKey = `${name}_${fastestLapForDriver.originalIndex}`;
+        fastestLapForDriver.is_fastest = (currentLapKey === overallFastestLapKey);
+
+        // Add this processed fastest lap to the result
+        processed[name].lap_times = [fastestLapForDriver];
+      }
+    }
+    return processed;
+  }
+
+
+  // Parse time string to seconds for accurate sorting
+  function parseTimeToSeconds(timeString) {
+    // Handle potential m:ss.sss format (convert m to seconds)
+    if (timeString.includes(':')) {
+      const parts = timeString.split(/[:.]/); // Split by : or .
+      if (parts.length === 3) { // m:ss.sss
+        return parseInt(parts[0]) * 60 + parseInt(parts[1]) + parseFloat(`0.${parts[2]}`);
+      } else if (parts.length === 2) { // m:ss
+        return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+      }
+    }
+    // Handle format m.ss.sss (split by '.')
+    else if (timeString.includes('.')) {
+      const parts = timeString.split('.');
+      if (parts.length === 3) { // m.ss.sss
+        return parseInt(parts[0]) * 60 + parseInt(parts[1]) + parseFloat(`0.${parts[2]}`);
+      } else if (parts.length === 2) { // ss.sss - Assume less than a minute
         return parseFloat(timeString);
       }
+    }
+    // Fallback for just seconds (maybe whole number)
+    const parsed = parseFloat(timeString);
+    return isNaN(parsed) ? Infinity : parsed; // Return Infinity if parsing fails
+  }
 
-      function updateTeamDisplay(
-        elementId,
-        teamDrivers,
-        fastestDriver,
-        teamKey
-      ) {
-        const container = document.getElementById(elementId);
 
-        if (Object.keys(teamDrivers).length === 0) {
-          container.innerHTML =
-            '<div class="no-laps">No lap times recorded</div>';
-          return;
-        }
+  function updateTeamDisplay(
+          elementId,
+          teamDrivers,
+          overallFastestDriverName, // Keep parameter name consistent
+          teamKey
+  ) {
+    const container = document.getElementById(elementId);
 
-        // Sort drivers by their lap times (fastest first)
-        const sortedDrivers = Object.entries(teamDrivers).sort((a, b) => {
-          const timeA =
-            a[1].lap_times.length > 0
-              ? parseTimeToSeconds(a[1].lap_times[0].time)
-              : Infinity;
-          const timeB =
-            b[1].lap_times.length > 0
-              ? parseTimeToSeconds(b[1].lap_times[0].time)
-              : Infinity;
-          return timeA - timeB;
-        });
+    if (Object.keys(teamDrivers).length === 0) {
+      container.innerHTML =
+              '<div class="no-laps">No lap times recorded</div>';
+      return;
+    }
 
-        let html = "";
+    // Sort drivers by their lap times (fastest first)
+    const sortedDrivers = Object.entries(teamDrivers).sort((a, b) => {
+      const timeA =
+              a[1].lap_times.length > 0
+                      ? parseTimeToSeconds(a[1].lap_times[0].time)
+                      : Infinity;
+      const timeB =
+              b[1].lap_times.length > 0
+                      ? parseTimeToSeconds(b[1].lap_times[0].time)
+                      : Infinity;
+      return timeA - timeB;
+    });
 
-        for (const [name, driver] of sortedDrivers) {
-          driver.lap_times.forEach((lap) => {
-            const isHighlight = lap.is_fastest;
-            html += `
-                    <div class="lap-item ${isHighlight ? "highlight" : ""}">
-                        <div class="driver-name">${truncateName(
-                          driver.name,
-                          20
-                        )}</div>
-                        <div class="lap-time">${formatTime(lap.time)}</div>
-                    </div>
-                `;
-          });
-        }
+    let html = "";
 
-        container.innerHTML = html;
+    for (const [name, driver] of sortedDrivers) {
+      // Since we only keep one lap per driver now, access it directly
+      if (driver.lap_times.length > 0) {
+        const lap = driver.lap_times[0];
+        // The 'is_fastest' flag is now correctly set in processDriverData
+        const isHighlight = lap.is_fastest;
+        html += `
+                     <div class="lap-item ${isHighlight ? "highlight" : ""}">
+                         <div class="driver-name">${truncateName(
+                driver.name,
+                20 // Max length can be adjusted here
+        )}</div>
+                         <div class="lap-time">${formatTime(lap.time)}</div>
+                     </div>
+                 `;
       }
+    }
 
-      // Truncate name to specified length
-      function truncateName(name, maxLength) {
-        if (name.length <= maxLength) {
-          return name;
-        }
-        return name.substring(0, maxLength);
-      }
+    container.innerHTML = html || '<div class="no-laps">No lap times recorded</div>'; // Handle case where drivers exist but have no laps
+  }
 
-      // Format time to ensure it displays correctly (handling seconds-only times and using dots)
-      function formatTime(timeString) {
-        // If time already contains a colon, convert format
-        if (timeString.includes(":")) {
-          const [minutes, seconds] = timeString.split(":");
-          return `${minutes}.${seconds}`;
-        }
-        // If time already has the correct format with dot
-        else if (timeString.includes(".")) {
-          // Check if it's already in m.ss.sss format
-          const parts = timeString.split(".");
-          if (parts.length === 3) {
-            // Already in correct format m.ss.sss
-            return timeString;
-          } else if (parts.length === 2) {
-            // Likely ss.sss format, add leading zero
-            return `0.${timeString}`;
-          }
+  // Truncate name to specified length
+  function truncateName(name, maxLength) {
+    if (!name) return ""; // Handle cases where name might be undefined/null
+    if (name.length <= maxLength) {
+      return name;
+    }
+    // Find the last space within the maxLength limit for cleaner truncation
+    let truncated = name.substring(0, maxLength);
+    let lastSpace = truncated.lastIndexOf(' ');
+    if (lastSpace > maxLength / 2) { // Only truncate at space if it's not too early
+      return truncated.substring(0, lastSpace) + '...';
+    }
+    return truncated + '...'; // Fallback if no good space found
+  }
+
+  // Format time to ensure it displays correctly (m.ss.sss)
+  function formatTime(timeInput) {
+    let totalSeconds;
+
+    // If input is already formatted like m:ss.sss or m.ss.sss, parse it
+    if (typeof timeInput === 'string') {
+      if (timeInput.includes(':')) {
+        const parts = timeInput.split(/[:.]/);
+        if (parts.length === 3) { // m:ss.sss
+          totalSeconds = parseInt(parts[0]) * 60 + parseInt(parts[1]) + parseFloat(`0.${parts[2]}`);
+        } else if (parts.length === 2) { // m:ss
+          totalSeconds = parseInt(parts[0]) * 60 + parseInt(parts[1]);
         } else {
-          const secondsValue = parseFloat(timeString);
-          // Convert seconds to minutes.seconds format
-          const minutes = Math.floor(secondsValue / 60);
-          const seconds = (secondsValue % 60).toFixed(3);
-
-          if (minutes > 0) {
-            // Add leading zero to seconds if needed
-            const secondsFormatted = seconds < 10 ? `0${seconds}` : seconds;
-            return `${minutes}.${secondsFormatted}`;
-          } else {
-            // For times under a minute
-            return `0.${seconds < 10 ? `0${seconds}` : seconds}`;
-          }
+          totalSeconds = parseFloat(timeInput); // Try parsing as seconds string
         }
-        return timeString; // Fallback return if none of the conditions match
+      } else if (timeInput.includes('.')) {
+        const parts = timeInput.split('.');
+        if (parts.length === 3) { // m.ss.sss
+          totalSeconds = parseInt(parts[0]) * 60 + parseInt(parts[1]) + parseFloat(`0.${parts[2]}`);
+        } else { // Assume ss.sss
+          totalSeconds = parseFloat(timeInput);
+        }
+      } else {
+        totalSeconds = parseFloat(timeInput); // Assume seconds string
       }
-    </script>
-  </body>
+    } else if (typeof timeInput === 'number') {
+      totalSeconds = timeInput; // Assume input is already total seconds
+    } else {
+      return "N/A"; // Invalid input
+    }
+
+    if (isNaN(totalSeconds) || totalSeconds === Infinity) {
+      return "N/A";
+    }
+
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    // Format seconds to always have 3 decimal places (sss) and leading zero if < 10
+    const formattedSeconds = seconds < 10 ? `0${seconds.toFixed(3)}` : seconds.toFixed(3);
+
+    return `${minutes}.${formattedSeconds}`;
+  }
+
+</script>
+</body>
 </html>
