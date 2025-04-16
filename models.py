@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 
 # --- Internal Data Structures ---
 
-
 class LapTime(BaseModel):
     time: str  # Store as original string e.g., "1:23.456" or "83.456"
     is_fastest: bool = False
@@ -141,6 +140,26 @@ class DriverResponse(BaseModel):
     lap_times: List[LapTime] = Field(
         default_factory=list
     )  # List for frontend compatibility
+
+class User(BaseModel):
+    """Represents a user/driver with their assigned team."""
+    name: str = Field(..., description="Driver's name", min_length=1)
+    team: str = Field(..., description="Driver's team", min_length=1)
+
+    @field_validator('name', 'team')
+    def name_must_not_be_empty(cls, value):
+        if not value.strip():
+            raise ValueError("Name and team cannot be empty or just whitespace")
+        return value.strip()
+
+class UserResponse(BaseModel):
+    """Response model for a single user."""
+    name: str
+    team: str
+
+class UserListResponse(BaseModel):
+    """Response model for a list of users."""
+    users: Dict[str, UserResponse]
 
 
 # Helper to convert internal Driver state to API response format

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>F1 24 User Management</title>
+    <style>
+      /* ... existing styles ... */
+      body {
+        font-family: "Arial", sans-serif;
+        background-color: #1a1a1a;
+        color: white;
+        padding: 30px;
+        margin: 0;
+      }
+      .container { max-width: 800px; margin: 0 auto; }
+      header { text-align: center; margin-bottom: 40px; }
+      h1 { font-size: 32px; font-weight: 800; margin-bottom: 10px; letter-spacing: 1px; }
+      .admin-section { background-color: #2a2a2a; border-radius: 8px; padding: 20px; margin-bottom: 30px; }
+      .admin-section h2 { font-size: 24px; margin-top: 0; margin-bottom: 20px; color: #f3f4f6; border-bottom: 1px solid #3a3a3a; padding-bottom: 10px; }
+      .input-group { margin-bottom: 20px; }
+      label { display: block; margin-bottom: 8px; font-weight: bold; color: #d1d5db; }
+      input, select { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #4b5563; background-color: #374151; color: white; font-size: 16px; box-sizing: border-box; }
+      input[type="text"] { width: calc(100% - 22px); /* Adjust for padding/border */ }
+      button { padding: 12px 24px; border-radius: 4px; border: none; background-color: #623e8b; color: white; font-weight: bold; cursor: pointer; font-size: 16px; transition: background-color 0.2s; }
+      button:hover { background-color: #7b4dba; }
+      button.danger { background-color: #dc2626; }
+      button.danger:hover { background-color: #ef4444; }
+      .button-group { display: flex; gap: 10px; justify-content: flex-start; }
+      .user-list { margin-top: 20px; border: 1px solid #3a3a3a; border-radius: 4px; max-height: 400px; overflow-y: auto; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 12px; text-align: left; border-bottom: 1px solid #3a3a3a; }
+      th { background-color: #374151; color: #f3f4f6; }
+      tr:hover { background-color: #374151; }
+      .status-message { margin-top: 10px; padding: 10px; border-radius: 4px; }
+      .status-success { background-color: rgba(16, 185, 129, 0.2); color: #10b981; }
+      .status-error { background-color: rgba(239, 68, 68, 0.2); color: #ef4444; }
+      .nav-link { display: block; text-align: center; margin-bottom: 20px; color: #a5b4fc; text-decoration: none; }
+      .nav-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>User Management</h1>
+            <a href="/admin/" class="nav-link">Back to Admin Panel</a>
+        </header>
+
+        <div class="admin-section">
+            <h2>Add New User</h2>
+            <div class="input-group">
+                <label for="newUserName">User Name</label>
+                <input type="text" id="newUserName" placeholder="Enter user name" />
+            </div>
+            <div class="input-group">
+                <label for="newUserTeam">Team</label>
+                <select id="newUserTeam">
+                    <option value="RedBull">Red Bull</option>
+                    <option value="McLaren">McLaren</option>
+                </select>
+            </div>
+            <div class="button-group">
+                <button id="addUserBtn">Add User</button>
+            </div>
+            <div id="addUserStatus" class="status-message"></div>
+        </div>
+
+        <div class="admin-section">
+            <h2>Current Users</h2>
+            <div class="user-list">
+                <table id="userTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Team</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                        <!-- User rows will be added here -->
+                    </tbody>
+                </table>
+            </div>
+             <div id="userListStatus" class="status-message"></div> <!-- Status for list operations -->
+        </div>
+    </div>
+
+    <script>
+        // Removed USER_STORAGE_KEY
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUsers(); // Load users from API on page load
+            document.getElementById('addUserBtn').addEventListener('click', addUser);
+        });
+
+        async function loadUsers() {
+            const statusElement = document.getElementById('userListStatus');
+            try {
+                const response = await fetch('/api/users');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                // The API returns { users: { name: { name: ..., team: ... } } }
+                // Convert the inner object values to an array
+                const usersArray = Object.values(data.users || {});
+                usersArray.sort((a, b) => a.name.localeCompare(b.name)); // Sort by name
+                renderUserTable(usersArray);
+                showStatus(statusElement, 'Users loaded.', true);
+            } catch (error) {
+                console.error('Error loading users:', error);
+                renderUserTable([]); // Render empty table on error
+                showStatus(statusElement, `Error loading users: ${error.message}`, false);
+            }
+        }
+
+        async function addUser() {
+            const nameInput = document.getElementById('newUserName');
+            const teamSelect = document.getElementById('newUserTeam');
+            const statusElement = document.getElementById('addUserStatus');
+
+            const name = nameInput.value.trim();
+            const team = teamSelect.value;
+
+            if (!name) {
+                showStatus(statusElement, 'Please enter a user name.', false);
+                return;
+            }
+             if (!team) {
+                showStatus(statusElement, 'Please select a team.', false); // Should not happen with select
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name, team }),
+                });
+
+                if (response.ok || response.status === 201) { // 201 Created is also success
+                    localStorage.setItem('f1TimingUserListTimestamp', Date.now()); // Signal update
+                    showStatus(statusElement, `User '${name}' added/updated successfully.`, true);
+                    nameInput.value = ''; // Clear form
+                    loadUsers() // Reload the user list table
+                } else {
+                    const errorData = await response.json().catch(() => ({ detail: `HTTP error ${response.status}` }));
+                    const errorMessage = errorData.detail || 'Failed to add user.';
+                     // If detail is an array (like validation errors), format it
+                    const displayMessage = Array.isArray(errorMessage)
+                        ? errorMessage.map(e => `${e.loc ? e.loc.join('.')+': ' : ''}${e.msg}`).join(', ')
+                        : errorMessage;
+                    showStatus(statusElement, `Error: ${displayMessage}`, false);
+                }
+            } catch (error) {
+                console.error('Error adding user:', error);
+                showStatus(statusElement, `Network or server error: ${error.message}`, false);
+            }
+        }
+
+        async function deleteUser(nameToDelete) {
+             if (!confirm(`Are you sure you want to delete user '${nameToDelete}'?`)) {
+                return;
+            }
+            const statusElement = document.getElementById('userListStatus'); // Use list status for delete feedback
+            // Encode the username in case it contains special characters like spaces
+            const encodedName = encodeURIComponent(nameToDelete);
+            try {
+                const response = await fetch(`/api/users/${encodedName}`, {
+                    method: 'DELETE',
+                });
+
+                if (response.ok) {
+                    localStorage.setItem('f1TimingUserListTimestamp', Date.now()); // Signal update
+                    showStatus(statusElement, `User '${nameToDelete}' deleted successfully.`, true);
+                    loadUsers(); // Reload the user list table
+                } else {
+                    const errorData = await response.json().catch(() => ({ detail: `HTTP error ${response.status}` }));
+                    const errorMessage = errorData.detail || 'Failed to delete user.';
+                    showStatus(statusElement, `Error: ${errorMessage}`, false);
+                }
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                showStatus(statusElement, `Network or server error: ${error.message}`, false);
+            }
+        }
+
+        function renderUserTable(users) {
+            const tableBody = document.getElementById('userTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            if (!users || users.length === 0) {
+                const row = tableBody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 3;
+                cell.textContent = 'No users defined yet.';
+                cell.style.textAlign = 'center';
+                cell.style.fontStyle = 'italic';
+                cell.style.color = '#8a8a9b';
+            } else {
+                users.forEach(user => {
+                    const row = tableBody.insertRow();
+                    // Escape user.name for the onclick attribute to prevent JS injection if name contains quotes
+                    const escapedName = user.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    row.innerHTML = `
+                        <td>${user.name}</td>
+                        <td>${user.team}</td>
+                        <td>
+                            <button class="danger" onclick="deleteUser('${escapedName}')">Delete</button>
+                        </td>
+                    `;
+                });
+            }
+        }
+
+        // Helper to show status messages
+        function showStatus(element, message, isSuccess) {
+            element.textContent = message;
+            element.className = 'status-message ' + (isSuccess ? 'status-success' : 'status-error');
+            // Clear message after a delay
+            setTimeout(() => {
+                // Only clear if the message hasn't changed in the meantime
+                if (element.textContent === message) {
+                    element.textContent = '';
+                    element.className = 'status-message';
+                }
+            }, 5000); // Increased delay to 5 seconds
+        }
+
+    </script>
+</body>
+</html>

@@ -72,10 +72,7 @@
         background-color: #374151;
         color: white;
         font-size: 16px;
-      }
-
-      input[type="text"] {
-        width: 96%;
+        box-sizing: border-box;
       }
 
       button {
@@ -188,6 +185,17 @@
         font-weight: bold;
         color: #fcd34d;
       }
+
+      .nav-link {
+        display: inline-block;
+        margin-left: 20px;
+        color: #a5b4fc;
+        text-decoration: none;
+      }
+
+      .nav-link:hover {
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
@@ -214,21 +222,24 @@
 
       <div class="admin-grid">
         <div class="admin-section">
-          <h2>Add Lap Time</h2>
+          <h2>
+            Add Lap Time
+            <a href="/admin/users" class="nav-link">Manage Users</a>
+          </h2>
           <div class="input-group">
-            <label for="driverName">Driver Name</label>
-            <input
-              type="text"
-              id="driverName"
-              placeholder="Enter driver name"
-            />
+            <label for="driverSelect">Driver Name</label>
+            <select id="driverSelect">
+              <option value="">-- Select Driver --</option>
+            </select>
           </div>
           <div class="input-group">
-            <label for="teamSelect">Team</label>
-            <select id="teamSelect">
-              <option value="RedBull">Red Bull</option>
-              <option value="McLaren">McLaren</option>
-            </select>
+            <label for="teamDisplay">Team</label>
+            <input
+              type="text"
+              id="teamDisplay"
+              readonly
+              style="background-color: #4b5563; cursor: not-allowed;"
+            />
           </div>
           <div class="input-group">
             <label for="lapTime">Lap Time (format: mm.ss.sss or seconds)</label>
@@ -267,20 +278,17 @@
 
       <div class="admin-section export-section">
         <h2>Export Data</h2>
-        <p>Export all lap times for the current track as a JSON file.</p>
+        <p>Export all lap times for the current track as a CSV file.</p>
         <button id="exportBtn">Export Lap Times</button>
         <div id="exportStatus" class="status-message"></div>
       </div>
     </div>
 
     <script>
-      // Global variables
       let allLapTimes = [];
       let currentTrack = "";
 
-      // Document ready function
       document.addEventListener("DOMContentLoaded", () => {
-        // Set up event listeners
         document
           .getElementById("setTrackBtn")
           .addEventListener("click", setTrackName);
@@ -293,13 +301,81 @@
         document
           .getElementById("exportBtn")
           .addEventListener("click", exportLapTimes);
+        document
+          .getElementById("driverSelect")
+          .addEventListener("change", updateTeamDisplayFromSelection);
 
-        // Load initial data
+        // Add storage event listener
+        window.addEventListener('storage', (event) => {
+            // Check if the key that changed is the one we care about
+            if (event.key === 'f1TimingUserListTimestamp') {
+                console.log('Detected user list update via storage event. Reloading users...');
+                loadDefinedUsers(); // Reload the dropdown
+            }
+        });
+
+        loadDefinedUsers();
         fetchCurrentTrack();
         fetchLapTimes();
+        setInterval(fetchLapTimes, 3000);
       });
 
-      // Fetch current track name
+      async function loadDefinedUsers() {
+        try {
+          const response = await fetch("/api/users");
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const data = await response.json();
+          const usersArray = Object.values(data.users || {});
+          usersArray.sort((a, b) => a.name.localeCompare(b.name));
+          populateDriverDropdown(usersArray);
+        } catch (error) {
+          console.error("Error loading defined users for dropdown:", error);
+          populateDriverDropdown([]);
+          showStatus(
+            document.getElementById("addLapStatus"),
+            `Error loading users: ${error.message}`,
+            false
+          );
+        }
+        updateTeamDisplayFromSelection();
+      }
+
+      function populateDriverDropdown(users) {
+        const selectElement = document.getElementById("driverSelect");
+        selectElement.innerHTML =
+          '<option value="">-- Select Driver --</option>';
+
+        if (!users || users.length === 0) {
+          const option = document.createElement("option");
+          option.textContent = "No users defined (Manage Users)";
+          option.disabled = true;
+          selectElement.appendChild(option);
+        } else {
+          users.forEach((user) => {
+            const option = document.createElement("option");
+            option.value = user.name;
+            option.textContent = user.name;
+            option.dataset.team = user.team;
+            selectElement.appendChild(option);
+          });
+        }
+      }
+
+      function updateTeamDisplayFromSelection() {
+        const selectElement = document.getElementById("driverSelect");
+        const teamDisplay = document.getElementById("teamDisplay");
+        const selectedOption =
+          selectElement.options[selectElement.selectedIndex];
+
+        if (selectedOption && selectedOption.dataset.team) {
+          teamDisplay.value = selectedOption.dataset.team;
+        } else {
+          teamDisplay.value = "";
+        }
+      }
+
       async function fetchCurrentTrack() {
         try {
           const response = await fetch("/api/track");
@@ -313,7 +389,6 @@
         }
       }
 
-      // Update the track name display
       function updateTrackDisplay() {
         const trackElement = document.getElementById("currentTrack");
         if (currentTrack) {
@@ -327,7 +402,6 @@
         }
       }
 
-      // Set track name
       async function setTrackName() {
         const trackInput = document.getElementById("trackNameInput");
         const trackName = trackInput.value.trim();
@@ -348,21 +422,37 @@
           });
 
           if (response.ok) {
-            currentTrack = trackName;
+            const data = await response.json();
+            currentTrack = data.name;
             updateTrackDisplay();
-            localStorage.setItem("currentTrack", currentTrack);
-            showStatus(statusElement, `Track set to: ${trackName}`, true);
+            showStatus(
+              statusElement,
+              `Track set to: ${currentTrack}`,
+              true
+            );
             trackInput.value = "";
+            fetchLapTimes();
+            loadDefinedUsers();
           } else {
-            showStatus(statusElement, "Failed to set track name", false);
+            const errorData = await response
+              .json()
+              .catch(() => ({ detail: `HTTP error ${response.status}` }));
+            showStatus(
+              statusElement,
+              `Error: ${errorData.detail || "Failed to set track"}`,
+              false
+            );
           }
         } catch (error) {
           console.error("Error setting track name:", error);
-          showStatus(statusElement, "Error setting track name", false);
+          showStatus(
+            statusElement,
+            "Network or server error setting track name",
+            false
+          );
         }
       }
 
-      // Fetch lap times
       async function fetchLapTimes() {
         try {
           const response = await fetch("/api/drivers");
@@ -371,27 +461,46 @@
             updateLapTimesTable(data);
           } else {
             console.error("Failed to fetch lap times");
+            updateLapTimesTable({});
+            showStatus(
+              document.getElementById("addLapStatus"),
+              "Failed to load lap times.",
+              false
+            );
           }
         } catch (error) {
           console.error("Error fetching lap times:", error);
+          updateLapTimesTable({});
+          showStatus(
+            document.getElementById("addLapStatus"),
+            `Error loading lap times: ${error.message}`,
+            false
+          );
         }
       }
 
-      // Add new lap time
       async function addLapTime() {
-        const driverInput = document.getElementById("driverName");
-        const teamSelect = document.getElementById("teamSelect");
+        const driverSelect = document.getElementById("driverSelect");
         const lapTimeInput = document.getElementById("lapTime");
         const statusElement = document.getElementById("addLapStatus");
+        const teamDisplay = document.getElementById("teamDisplay");
 
-        const driverName = driverInput.value.trim();
-        const team = teamSelect.value;
+        const driverName = driverSelect.value;
+        const team = teamDisplay.value;
         const lapTime = lapTimeInput.value.trim();
 
-        if (!driverName || !lapTime) {
+        if (!driverName) {
+          showStatus(statusElement, "Please select a driver", false);
+          return;
+        }
+        if (!lapTime) {
+          showStatus(statusElement, "Please enter lap time", false);
+          return;
+        }
+        if (!team) {
           showStatus(
             statusElement,
-            "Please enter driver name and lap time",
+            "Could not determine team for selected driver.",
             false
           );
           return;
@@ -413,64 +522,110 @@
           if (response.ok) {
             showStatus(statusElement, "Lap time added successfully", true);
             clearLapForm();
-            fetchLapTimes(); // Refresh the table
+            fetchLapTimes();
           } else {
-            showStatus(statusElement, "Failed to add lap time", false);
+            const errorData = await response
+              .json()
+              .catch(() => ({ detail: "Failed to add lap time" }));
+            const errorMessage = errorData.detail || "Failed to add lap time";
+            const displayMessage = Array.isArray(errorMessage)
+              ? errorMessage
+                  .map(
+                    (e) =>
+                      `${e.loc ? e.loc.join(".") + ": " : ""}${e.msg}`
+                  )
+                  .join(", ")
+              : errorMessage;
+            showStatus(
+              statusElement,
+              `Error: ${displayMessage}`,
+              false
+            );
           }
         } catch (error) {
           console.error("Error adding lap time:", error);
-          showStatus(statusElement, "Error adding lap time", false);
+          showStatus(
+            statusElement,
+            "Network or server error adding lap time",
+            false
+          );
         }
       }
 
-      // Clear lap form
       function clearLapForm() {
-        document.getElementById("driverName").value = "";
+        document.getElementById("driverSelect").value = "";
         document.getElementById("lapTime").value = "";
+        document.getElementById("teamDisplay").value = "";
         document.getElementById("addLapStatus").innerHTML = "";
       }
 
-      // Update lap times table
       function updateLapTimesTable(drivers) {
         const tableBody = document.getElementById("lapTableBody");
         tableBody.innerHTML = "";
 
-        // Flatten all lap times for all drivers
         allLapTimes = [];
 
-        for (const [name, driver] of Object.entries(drivers)) {
-          for (const lap of driver.lap_times) {
-            allLapTimes.push({
-              driver: name,
-              team: driver.team,
-              time: lap.time,
-              isFastest: lap.is_fastest,
-            });
+        if (
+          drivers &&
+          typeof drivers === "object" &&
+          Object.keys(drivers).length > 0
+        ) {
+          for (const [name, driver] of Object.entries(drivers)) {
+            // Correctly check the lap_times array
+            if (driver.lap_times && driver.lap_times.length > 0) {
+              const fastestLap = driver.lap_times[0]; // Get the first (and only) lap
+              allLapTimes.push({
+                driver: name,
+                team: driver.team,
+                time: fastestLap.time, // Access time from the lap object
+                // Optionally store seconds for correct sorting:
+                time_seconds: fastestLap.time_seconds
+              });
+            }
           }
+          // Correct sorting using time_seconds
+          allLapTimes.sort((a, b) => a.time_seconds - b.time_seconds);
         }
 
-        // Sort by most recent first (assuming newer laps are at the end of the array)
-        allLapTimes.reverse();
-
-        // Populate the table
-        for (const lap of allLapTimes) {
-          const row = document.createElement("tr");
-          row.innerHTML = `
-                    <td>${lap.driver}</td>
-                    <td>${lap.team}</td>
-                    <td>${formatTime(lap.time)}</td>
-                    <td>
-                        <button onclick="deleteLapTime('${lap.driver}', '${
-            lap.time
-          }')" class="danger">Delete</button>
-                    </td>
-                `;
-          tableBody.appendChild(row);
+        if (allLapTimes.length === 0) {
+          const row = tableBody.insertRow();
+          const cell = row.insertCell();
+          cell.colSpan = 4;
+          cell.textContent = "No lap times recorded yet for this track.";
+          cell.style.textAlign = "center";
+          cell.style.fontStyle = "italic";
+          cell.style.color = "#8a8a9b";
+        } else {
+          for (const lap of allLapTimes) {
+            const row = document.createElement("tr");
+            // Escape driver name for safety in onclick attribute
+            const escapedDriverName = lap.driver
+              .replace(/'/g, "\\'")
+              .replace(/"/g, "&quot;");
+            row.innerHTML = `
+                        <td>${lap.driver}</td>
+                        <td>${lap.team}</td>
+                        <td>${formatTime(lap.time)}</td>
+                        <td>
+                            <button onclick="deleteLapTime('${escapedDriverName}', '${lap.time}')" class="danger">Delete</button>
+                        </td>
+                    `;
+            tableBody.appendChild(row);
+          }
         }
       }
 
-      // Delete lap time
       async function deleteLapTime(driver, time) {
+        if (
+          !confirm(
+            `Are you sure you want to delete the lap time ${formatTime(
+              time
+            )} for ${driver}?`
+          )
+        ) {
+          return;
+        }
+
         try {
           const response = await fetch("/api/laptime", {
             method: "DELETE",
@@ -484,16 +639,33 @@
           });
 
           if (response.ok) {
-            fetchLapTimes(); // Refresh the table
+            fetchLapTimes();
+            showStatus(
+              document.getElementById("addLapStatus"),
+              "Lap time deleted.",
+              true
+            );
           } else {
-            console.error("Failed to delete lap time");
+            const errorData = await response
+              .json()
+              .catch(() => ({ detail: "Failed to delete lap time" }));
+            showStatus(
+              document.getElementById("addLapStatus"),
+              `Error: ${errorData.detail}`,
+              false
+            );
+            console.error("Failed to delete lap time", errorData);
           }
         } catch (error) {
+          showStatus(
+            document.getElementById("addLapStatus"),
+            "Network or server error deleting lap time.",
+            false
+          );
           console.error("Error deleting lap time:", error);
         }
       }
 
-      // Export lap times
       async function exportLapTimes() {
         const statusElement = document.getElementById("exportStatus");
 
@@ -506,110 +678,110 @@
           return;
         }
 
-        // Clear previous status/buttons
         statusElement.innerHTML = "Exporting...";
-        statusElement.className = "status-message"; // Reset class
+        statusElement.className = "status-message";
 
         try {
-          // Call the server-side export endpoint
-          const response = await fetch("/api/export"); // Changed from /api/drivers
-          const result = await response.json(); // Parse the ExportResponse
+          const response = await fetch("/api/export");
 
-          if (response.ok && result.success) {
-            // Display success message from the server, including the filename
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+              showStatus(
+                statusElement,
+                `Export successful! File saved on server: ${result.filename}`,
+                true
+              );
+            } else {
+              showStatus(
+                statusElement,
+                `Export failed: ${result.message || "Unknown reason"}`,
+                false
+              );
+            }
+          } else {
+            const errorData = await response
+              .json()
+              .catch(() => ({ message: `HTTP error ${response.status}` }));
             showStatus(
               statusElement,
-              `Export successful! Files saved on server. CSV: ${result.filename}`,
-              true
+              `Export failed: ${errorData.message || "Server error"}`,
+              false
             );
-            // No client-side download needed here
-          } else {
-            // Display error message from the server or a generic one
-            const errorMessage = result.message || "Failed to export lap times";
-            showStatus(statusElement, errorMessage, false);
           }
         } catch (error) {
           console.error("Error calling export API:", error);
-          showStatus(statusElement, "Error occurred during export", false);
+          showStatus(
+            statusElement,
+            "Network or server error during export",
+            false
+          );
         }
       }
 
-      // Helper to show status messages
       function showStatus(element, message, isSuccess) {
         element.textContent = message;
         element.className =
           "status-message " + (isSuccess ? "status-success" : "status-error");
 
-        // Optional: Clear message after some time, but maybe keep export status visible longer
         setTimeout(() => {
-          element.textContent = "";
-          element.className = "status-message";
-        }, 200000);
-      }
-
-      // Helper to show status messages
-      function showStatus(element, message, isSuccess) {
-        element.textContent = message;
-        element.className =
-          "status-message " + (isSuccess ? "status-success" : "status-error");
-
-        // Clear message after 5 seconds
-        setTimeout(() => {
-          element.textContent = "";
-          element.className = "status-message";
+          if (element.textContent === message) {
+            element.textContent = "";
+            element.className = "status-message";
+          }
         }, 5000);
       }
 
-      // Parse time string to seconds for accurate sorting
-      function parseTimeToSeconds(timeString) {
-        if (timeString.includes(":")) {
-          const [minutes, seconds] = timeString.split(":");
-          return parseInt(minutes) * 60 + parseFloat(seconds);
-        } else if (timeString.includes(".")) {
-          const parts = timeString.split(".");
-          if (parts.length === 3) {
-            return (
-              parseInt(parts[0]) * 60 +
-              parseInt(parts[1]) +
-              parseFloat(`0.${parts[2]}`)
-            );
-          } else if (parts.length === 2) {
-            return parseFloat(timeString);
-          }
-        }
-        return parseFloat(timeString);
-      }
+      function formatTime(timeInput) {
+        let totalSeconds;
 
-      // Format time for display
-      function formatTime(timeString) {
-        // If time already contains a colon, it's already formatted
-        if (timeString.includes(":")) {
-          return timeString;
-        }
-        // If time has dots instead of colons, convert format
-        else if (timeString.includes(".")) {
-          const parts = timeString.split(".");
-          if (parts.length === 3) {
-            // Format: m.ss.sss -> m:ss.sss
-            return `${parts[0]}:${parts[1]}.${parts[2]}`;
-          } else if (parts.length === 2) {
-            // Format: ss.sss
-            return timeString;
-          }
-        } else {
-          // Simple seconds value
-          const secondsValue = parseFloat(timeString);
-          const minutes = Math.floor(secondsValue / 60);
-          const seconds = (secondsValue % 60).toFixed(3);
-
-          if (minutes > 0) {
-            const secondsFormatted = seconds < 10 ? `0${seconds}` : seconds;
-            return `${minutes}:${secondsFormatted}`;
+        if (typeof timeInput === "string") {
+          if (timeInput.includes(":")) {
+            const parts = timeInput.split(/[:.]/);
+            if (parts.length === 3) {
+              totalSeconds =
+                parseInt(parts[0]) * 60 +
+                parseInt(parts[1]) +
+                parseFloat(`0.${parts[2]}`);
+            } else if (parts.length === 2) {
+              totalSeconds =
+                parseInt(parts[0]) * 60 + parseInt(parts[1]);
+            } else {
+              totalSeconds = parseFloat(timeInput);
+            }
+          } else if (timeInput.includes(".")) {
+            const parts = timeInput.split(".");
+            if (parts.length === 3) {
+              totalSeconds =
+                parseInt(parts[0]) * 60 +
+                parseInt(parts[1]) +
+                parseFloat(`0.${parts[2]}`);
+            } else {
+              totalSeconds = parseFloat(timeInput);
+            }
           } else {
-            return seconds;
+            totalSeconds = parseFloat(timeInput);
           }
+        } else if (typeof timeInput === "number") {
+          totalSeconds = timeInput;
+        } else {
+          return "N/A";
         }
-        return timeString;
+
+        if (
+          isNaN(totalSeconds) ||
+          totalSeconds === Infinity ||
+          totalSeconds < 0
+        ) {
+          return "N/A";
+        }
+
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const formattedSeconds =
+          seconds < 10 ? `0${seconds.toFixed(3)}` : seconds.toFixed(3);
+
+        return `${minutes}:${formattedSeconds}`;
       }
     </script>
   </body>

@@ -1,14 +1,14 @@
 import asyncio
 import logging
 from typing import Dict, Optional
-
 from models import (
-    AppData,
-    Driver,
-    LapTime,
     LapTimeInput,
     LapTimeDeleteInput,
     TrackNameInput,
+    Driver,
+    LapTime,
+    User,
+    UserResponse,
 )
 from helpers import update_overall_fastest_lap
 
@@ -16,22 +16,61 @@ from helpers import update_overall_fastest_lap
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- State Management ---
-# Simple in-memory storage with an asyncio Lock for async safety
-# In a real app, you might use a database or a more robust state management solution
+
+# --- Application State ---
+class AppData:
+    """Holds the application's in-memory state."""
+
+    def __init__(self):
+        self.drivers: Dict[str, Driver] = {}
+        self.track_name: Optional[str] = None
+        self.users: Dict[str, User] = {}
+
+
 app_data = AppData()
-# Lock to prevent race conditions when multiple requests modify the state
-# Use asyncio.Lock because FastAPI runs in an async context
 state_lock = asyncio.Lock()
 
-# --- CRUD Functions (Interact with app_data) ---
+# --- User CRUD Operations ---
+
+
+async def get_all_users() -> Dict[str, User]:
+    """Returns all defined users."""
+    async with state_lock:
+        return app_data.users.copy()
+
+
+async def add_user(user_input: User) -> Dict[str, User]:
+    """Adds a new user or updates the team if the user exists."""
+    async with state_lock:
+        user_key = user_input.name
+        if user_key in app_data.users:
+            logger.info(
+                f"Updating team for existing user '{user_key}' to '{user_input.team}'."
+            )
+        else:
+            logger.info(f"Adding new user '{user_key}' with team '{user_input.team}'.")
+        app_data.users[user_key] = user_input
+        return app_data.users.copy()
+
+
+async def delete_user(user_name: str) -> bool:
+    """Deletes a user by name. Returns True if deleted, False otherwise."""
+    async with state_lock:
+        if user_name in app_data.users:
+            del app_data.users[user_name]
+            logger.info(f"Deleted user '{user_name}'.")
+            return True
+        else:
+            logger.warning(f"Attempted to delete non-existent user '{user_name}'.")
+            return False
+
+
+# --- Driver/LapTime/Track CRUD Operations ---
 
 
 async def get_all_drivers() -> Dict[str, Driver]:
-    """Returns a copy of the current drivers dictionary."""
+    """Returns all current drivers and their data."""
     async with state_lock:
-        # Return a deep copy to prevent modifications outside the lock affecting state
-        # Pydantic's model_copy is good for this
         return {
             name: driver.model_copy(deep=True)
             for name, driver in app_data.drivers.items()
@@ -39,65 +78,95 @@ async def get_all_drivers() -> Dict[str, Driver]:
 
 
 async def add_or_update_lap_time(lap_input: LapTimeInput) -> Dict[str, Driver]:
-    """Adds a new driver or updates an existing driver's lap time."""
+    """Adds or updates a lap time for a driver."""
     async with state_lock:
-        driver = app_data.drivers.get(lap_input.name)
+        driver_name = lap_input.name
+        try:
+            new_lap = LapTime(time=lap_input.time, is_fastest=False)
+        except ValueError as e:
+            logger.error(
+                f"Invalid time format provided for {driver_name}: {lap_input.time} - {e}"
+            )
+            raise ValueError(f"Invalid time format: {lap_input.time}")
 
-        if not driver:
-            # Create new driver
-            driver = Driver(name=lap_input.name, team=lap_input.team)
-            app_data.drivers[lap_input.name] = driver
-            logger.info(f"Created new driver: {lap_input.name}")
-
-        # Update the driver's lap time (only keeps fastest) and team
-        updated = driver.update_lap(lap_input.time, lap_input.team)
-        if updated:
+        if driver_name not in app_data.drivers:
+            app_data.drivers[driver_name] = Driver(
+                name=driver_name, team=lap_input.team, fastest_lap=new_lap
+            )
             logger.info(
-                f"Updated fastest lap for {driver.name} to {driver.fastest_lap.time if driver.fastest_lap else 'None'}"
+                f"Created new driver '{driver_name}' with lap time {new_lap.time}."
             )
         else:
-            logger.info(
-                f"New lap {lap_input.time} not faster than existing {driver.fastest_lap.time if driver.fastest_lap else 'None'} for {driver.name}"
-            )
+            driver = app_data.drivers[driver_name]
+            if driver.team != lap_input.team:
+                logger.info(
+                    f"Updating team for driver '{driver_name}' from '{driver.team}' to '{lap_input.team}'."
+                )
+                driver.team = lap_input.team
 
-        # Recalculate overall fastest lap across all drivers
+            if (
+                driver.fastest_lap is None
+                or new_lap.time_seconds < driver.fastest_lap.time_seconds
+            ):
+                driver.fastest_lap = new_lap
+                logger.info(
+                    f"Updated fastest lap for '{driver_name}' to {new_lap.time}."
+                )
+            else:
+                logger.info(
+                    f"New lap time {new_lap.time} for '{driver_name}' is not faster than existing {driver.fastest_lap.time}."
+                )
+
         update_overall_fastest_lap(app_data.drivers)
-
-        # Return a copy of the updated state
-        return {name: d.model_copy(deep=True) for name, d in app_data.drivers.items()}
+        return {
+            name: driver.model_copy(deep=True)
+            for name, driver in app_data.drivers.items()
+        }
 
 
 async def delete_driver_lap_time(delete_input: LapTimeDeleteInput) -> bool:
-    """Deletes a specific lap time for a driver. Since we only store the
-    fastest, this effectively removes the driver's time if it matches."""
+    """
+    Deletes the stored lap time for a driver if the provided time matches.
+    Returns True if the lap was found and deleted, False otherwise.
+    """
     async with state_lock:
-        driver = app_data.drivers.get(delete_input.name)
-        lap_deleted = False
+        driver_name = delete_input.name
+        time_to_delete_str = delete_input.time
 
-        if (
-            driver
-            and driver.fastest_lap
-            and driver.fastest_lap.time == delete_input.time
-        ):
-            # Remove the fastest lap
-            driver.fastest_lap = None
-            lap_deleted = True
-            logger.info(
-                f"Deleted lap time {delete_input.time} for driver {delete_input.name}"
+        if driver_name in app_data.drivers:
+            driver = app_data.drivers[driver_name]
+            if driver.fastest_lap:
+                try:
+                    temp_lap_for_comparison = LapTime(time=time_to_delete_str)
+                    time_to_delete_sec = temp_lap_for_comparison.time_seconds
+                except ValueError:
+                    logger.warning(
+                        f"Invalid time format '{time_to_delete_str}' provided for deletion for driver '{driver_name}'."
+                    )
+                    return False
+
+                if abs(driver.fastest_lap.time_seconds - time_to_delete_sec) < 0.0001:
+                    logger.info(
+                        f"Deleting lap time {driver.fastest_lap.time} for driver '{driver_name}'."
+                    )
+                    driver.fastest_lap = None
+                    update_overall_fastest_lap(app_data.drivers)
+                    return True
+                else:
+                    logger.warning(
+                        f"Lap time '{time_to_delete_str}' provided for deletion does not match stored time '{driver.fastest_lap.time}' for driver '{driver_name}'."
+                    )
+                    return False
+            else:
+                logger.warning(
+                    f"Attempted to delete lap time for driver '{driver_name}' but they have no recorded lap."
+                )
+                return False
+        else:
+            logger.warning(
+                f"Attempted to delete lap time for non-existent driver '{driver_name}'."
             )
-
-            # Optional: Remove driver if they now have no lap time?
-            # Check if you want to keep driver entries even without times
-            # if not driver.fastest_lap: # Check other potential fields if needed
-            #     del app_data.drivers[delete_input.name]
-            #     logger.info(f"Removed driver {delete_input.name} as they have no laps.")
-
-        if lap_deleted:
-            # Recalculate overall fastest lap
-            update_overall_fastest_lap(app_data.drivers)
-            return True  # Indicate success
-
-        return False  # Driver or specific lap time not found
+            return False
 
 
 async def get_track() -> Optional[str]:
@@ -107,8 +176,15 @@ async def get_track() -> Optional[str]:
 
 
 async def set_track(track_input: TrackNameInput) -> str:
-    """Sets the current track name."""
+    """Sets the track name and clears existing driver data."""
     async with state_lock:
-        app_data.track_name = track_input.name
-        logger.info(f"Track name set to: {app_data.track_name}")
+        new_track_name = track_input.name.strip()
+        if app_data.track_name != new_track_name:
+            logger.info(
+                f"Setting track to '{new_track_name}'. Clearing previous driver data."
+            )
+            app_data.track_name = new_track_name
+            app_data.drivers.clear()
+        else:
+            logger.info(f"Track name '{new_track_name}' is already set.")
         return app_data.track_name
