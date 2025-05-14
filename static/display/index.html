@@ -243,16 +243,89 @@
 <script>
   let currentTrack = "";
   let allDriverData = {};
+  let socket = null;
 
   // Setup event listeners when the page loads
   document.addEventListener("DOMContentLoaded", () => {
     // Load track name from API or localStorage
     fetchTrackName();
 
-    // Start the data refresh
+    // Connect to WebSocket
+    connectWebSocket();
+    
+    // Initial data load
     loadDisplayData();
-    setInterval(loadDisplayData, 2000);
   });
+  
+  // WebSocket Implementation
+  function connectWebSocket() {
+    // Create WebSocket connection
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+    
+    console.log(`Connecting to WebSocket at ${wsUrl}`);
+    
+    if (socket) {
+      // Close any existing connection
+      socket.close();
+    }
+    
+    socket = new WebSocket(wsUrl);
+    
+    socket.onopen = (event) => {
+      console.log("Display: WebSocket connection established");
+    };
+    
+    socket.onmessage = (event) => {
+      // Parse the JSON message
+      try {
+        const message = JSON.parse(event.data);
+        console.log("Display: Received WebSocket message:", message);
+        handleWebSocketMessage(message);
+      } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
+      }
+    };
+    
+    socket.onclose = (event) => {
+      console.log("WebSocket connection closed");
+      // Attempt to reconnect after a delay
+      setTimeout(connectWebSocket, 2000);
+    };
+    
+    socket.onerror = (error) => {
+      console.error("WebSocket error:", error);
+      socket.close();
+    };
+  }
+
+  function handleWebSocketMessage(message) {
+    switch(message.type) {
+      case "user_update":
+        // User updates don't directly affect display, but could be useful in future
+        console.log("User update received:", message);
+        break;
+        
+      case "laptime_update":
+        console.log("Lap time update received:", message);
+        // Refresh display data when lap times change
+        loadDisplayData();
+        break;
+        
+      case "track_update":
+        console.log("Track update received:", message);
+        // Update track name and refresh display data
+        if (message.data && message.data.name) {
+          currentTrack = message.data.name;
+          updateTrackTitle();
+        }
+        loadDisplayData();
+        break;
+        
+      default:
+        console.log("Unknown message type:", message.type);
+    }
+  }
 
   async function fetchTrackName() {
     try {
