@@ -22,7 +22,7 @@ This is the successor to the original [f1timings-rs](https://github.com/edoardo-
 - **Data Export (`GET /api/export`):**
   - Exports current standings (sorted by fastest lap) to timestamped CSV files in an `exports/` directory, including calculated points.
 - **Static File Serving:** Serves static HTML/JS/CSS frontends from `static/admin`, `static/display`, and the root `static` directory.
-- **WebSocket Integration:** 
+- **WebSocket Integration:**
   - Real-time updates via `/ws` endpoint for connected clients
   - Broadcasts notifications for lap time updates, user changes, and track changes
   - Supports instant UI updates without manual refreshing
@@ -38,7 +38,7 @@ This is the successor to the original [f1timings-rs](https://github.com/edoardo-
 
 ## Technology Stack
 
-- **Backend:** Python
+- **Backend:** Python 3.12.10
 - **Web Framework:** FastAPI
 - **Data Validation:** Pydantic
 - **Async Server:** Uvicorn
@@ -50,7 +50,7 @@ This is the successor to the original [f1timings-rs](https://github.com/edoardo-
 
 ## Prerequisites
 
-- **Python:** Version 3.8+ recommended.
+- **Python:** Version 3.12.10 recommended.
 - **pip:** Python package installer.
 - **(Optional) Git:** For cloning the repository.
 
@@ -59,28 +59,26 @@ This is the successor to the original [f1timings-rs](https://github.com/edoardo-
 1.  **Clone the repository:**
 
     ```bash
-    git clone https://github.com/edoardo-morosanu/f1timings-py.git
-    cd f1timings-py
+    $ git clone https://github.com/edoardo-morosanu/f1timings-py.git
+    $ cd f1timings-py
     ```
 
 2.  **Create and activate a virtual environment (Recommended):**
 
     ```bash
     # Linux/macOS
-    python3 -m venv venv
-    source venv/bin/activate
+    $ python3 -m venv venv
+    $ source venv/bin/activate
 
     # Windows
-    python -m venv venv
-    .\venv\Scripts\activate
+    $ python -m venv venv
+    $ .\venv\Scripts\activate
     ```
 
 3.  **Install dependencies:**
     ```bash
-    pip install -r requirements.txt
+    $ pip install -r requirements.txt
     ```
-    <!-- [TODO: Create requirements.txt with FastAPI, Uvicorn, Pydantic, aiofiles, etc.] -->
-    <!-- Example: pip install fastapi uvicorn[standard] pydantic aiofiles -->
 
 ## Running the Application
 
@@ -88,21 +86,14 @@ This is the successor to the original [f1timings-rs](https://github.com/edoardo-
 
   ```bash
   # Make sure your virtual environment is activated
-  uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+  $ uvicorn main:app
   ```
 
-  _Alternatively, if using the `if __name__ == "__main__":` block in `main.py`:_
+  _Alternatively:_
 
   ```bash
-  python main.py
+  $ python main.py
   ```
-
-- **Production (Example using Uvicorn with multiple workers):**
-  ```bash
-  # Make sure your virtual environment is activated
-  uvicorn main:app --host 0.0.0.0 --port 8080 --workers 4
-  ```
-  _(Adjust `--workers` based on your server's CPU cores)_
 
 The server listens on `0.0.0.0:8080` by default.
 
