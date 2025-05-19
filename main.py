@@ -4,6 +4,7 @@ from typing import Dict, List
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, Path
+from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -33,8 +34,10 @@ from crud import (
     delete_user,
     app_data,
     state_lock,
+    set_websocket_manager,
 )
 from helpers import export_to_files, update_overall_fastest_lap
+from websocket import ConnectionManager
 
 # Configure logging
 logging.basicConfig(
@@ -42,24 +45,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Create the WebSocket connection manager
+manager = ConnectionManager()
 
 # --- Lifespan Management ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Application startup...")
     # --- Add startup logic here ---
-    # Example: Load initial state from a file, start UDP listener
-    # udp_task = asyncio.create_task(run_udp_listener())
+    # Assign the manager to crud.py
+    set_websocket_manager(manager)
     yield
     # --- Add shutdown logic here ---
     logger.info("Application shutdown...")
-    # Example: Save state to a file, cancel background tasks
-    # udp_task.cancel()
-    # try:
-    #     await udp_task
-    # except asyncio.CancelledError:
-    #     logger.info("UDP listener task cancelled.")
-
 
 app = FastAPI(title="F1 Telemetry API", version="1.0.0", lifespan=lifespan)
 
@@ -74,6 +72,16 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+# -- WebSocket Connection Management ---
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        logger.info(f"Client disconnected")
 
 # --- Custom Exception Handlers ---
 @app.exception_handler(RequestValidationError)
@@ -84,7 +92,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={"detail": exc.errors()},
     )
-
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -97,7 +104,6 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         content={"detail": exc.detail},
     )
 
-
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     # Catch-all for unexpected server errors
@@ -109,11 +115,9 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={"detail": "An internal server error occurred."},
     )
 
-
 # --- API Routes ---
 
 # --- User Management Routes ---
-
 
 @app.get("/api/users", response_model=UserListResponse, tags=["Users"])
 async def get_users_endpoint():
@@ -125,7 +129,6 @@ async def get_users_endpoint():
         for name, user in users_internal.items()
     }
     return UserListResponse(users=users_response)
-
 
 @app.post("/api/users", response_model=UserResponse, status_code=201, tags=["Users"])
 async def add_user_endpoint(user_input: User):
@@ -141,7 +144,6 @@ async def add_user_endpoint(user_input: User):
     except Exception as e:
         logger.exception(f"Error adding user {user_input.name}: {e}")
         raise HTTPException(status_code=500, detail="Failed to add user")
-
 
 @app.delete("/api/users/{user_name}", status_code=200, tags=["Users"])
 async def delete_user_endpoint(
@@ -161,9 +163,7 @@ async def delete_user_endpoint(
             status_code=404, detail=f"User '{decoded_user_name}' not found"
         )
 
-
 # --- Driver/LapTime/Track Routes ---
-
 
 @app.get("/api/drivers", response_model=Dict[str, DriverResponse], tags=["Drivers"])
 async def get_drivers_endpoint():
@@ -174,7 +174,6 @@ async def get_drivers_endpoint():
         name: driver_to_response(driver) for name, driver in drivers_internal.items()
     }
     return drivers_response
-
 
 @app.post(
     "/api/laptime",
@@ -202,7 +201,6 @@ async def add_lap_time_endpoint(lap_input: LapTimeInput):
         logger.exception(f"Error adding lap time for {lap_input.name}: {e}")
         raise HTTPException(status_code=500, detail="Failed to add lap time")
 
-
 @app.delete("/api/laptime", status_code=200, tags=["Lap Times"])
 async def delete_lap_time_endpoint(delete_input: LapTimeDeleteInput):
     """
@@ -221,13 +219,11 @@ async def delete_lap_time_endpoint(delete_input: LapTimeDeleteInput):
             status_code=404, detail="Driver or specified lap time not found"
         )
 
-
 @app.get("/api/track", response_model=TrackNameResponse, tags=["Track"])
 async def get_track_name_endpoint():
     """Gets the currently set track name."""
     track_name = await get_track()
     return TrackNameResponse(name=track_name or "")  # Return empty string if None
-
 
 @app.post(
     "/api/track", response_model=TrackNameResponse, status_code=200, tags=["Track"]
@@ -238,7 +234,6 @@ async def set_track_name_endpoint(track_input: TrackNameInput):
         raise HTTPException(status_code=400, detail="Track name cannot be empty")
     updated_track_name = await set_track(track_input)
     return TrackNameResponse(name=updated_track_name)
-
 
 @app.get("/api/export", response_model=ExportResponse, tags=["Export"])
 async def export_lap_times_endpoint():
@@ -298,7 +293,6 @@ async def export_lap_times_endpoint():
             ).model_dump(),
         )
 
-
 # --- Static Files Serving ---
 # Serve specific admin/display routes first
 # Ensure the paths match your folder structure
@@ -314,7 +308,6 @@ app.mount(
 # Serve shared assets (like images) or a root index.html from the main static folder
 # This also acts as a fallback for other paths under /
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
-
 
 # --- Run the application ---
 if __name__ == "__main__":

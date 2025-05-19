@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>F1 24 User Management</title>
     <style>
-      /* ... existing styles ... */
       body {
         font-family: "Arial", sans-serif;
         background-color: #1a1a1a;
@@ -21,7 +20,7 @@
       .input-group { margin-bottom: 20px; }
       label { display: block; margin-bottom: 8px; font-weight: bold; color: #d1d5db; }
       input, select { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #4b5563; background-color: #374151; color: white; font-size: 16px; box-sizing: border-box; }
-      input[type="text"] { width: calc(100% - 22px); /* Adjust for padding/border */ }
+      input[type="text"] { width: 100%; }
       button { padding: 12px 24px; border-radius: 4px; border: none; background-color: #623e8b; color: white; font-weight: bold; cursor: pointer; font-size: 16px; transition: background-color 0.2s; }
       button:hover { background-color: #7b4dba; }
       button.danger { background-color: #dc2626; }
@@ -86,12 +85,68 @@
     </div>
 
     <script>
-        // Removed USER_STORAGE_KEY
+        // WebSocket connection
+        let socket = null;
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize WebSocket connection
+            connectWebSocket();
+            
+            // Initial data load
             loadUsers(); // Load users from API on page load
+            
             document.getElementById('addUserBtn').addEventListener('click', addUser);
         });
+        
+        // WebSocket Implementation
+        function connectWebSocket() {
+            // Create WebSocket connection
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+            
+            console.log(`Connecting to WebSocket at ${wsUrl}`);
+            
+            if (socket) {
+                // Close any existing connection
+                socket.close();
+            }
+            
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = (event) => {
+                console.log("WebSocket connection established");
+            };
+            
+            socket.onmessage = (event) => {
+                // Parse the JSON message
+                try {
+                    const message = JSON.parse(event.data);
+                    console.log("Received WebSocket message:", message);
+                    handleWebSocketMessage(message);
+                } catch (error) {
+                    console.error("Error parsing WebSocket message:", error);
+                }
+            };
+            
+            socket.onclose = (event) => {
+                console.log("WebSocket connection closed");
+                // Attempt to reconnect after a delay
+                setTimeout(connectWebSocket, 2000);
+            };
+            
+            socket.onerror = (error) => {
+                console.error("WebSocket error:", error);
+                socket.close();
+            };
+        }
+
+        function handleWebSocketMessage(message) {
+            if (message.type === "user_update") {
+                console.log("User update received:", message);
+                // Reload the user list when changes occur
+                loadUsers();
+            }
+        }
 
         async function loadUsers() {
             const statusElement = document.getElementById('userListStatus');
@@ -141,9 +196,10 @@
                 });
 
                 if (response.ok || response.status === 201) { // 201 Created is also success
-                    localStorage.setItem('f1TimingUserListTimestamp', Date.now()); // Signal update
+                    // Server will broadcast update via WebSocket
                     showStatus(statusElement, `User '${name}' added/updated successfully.`, true);
                     nameInput.value = ''; // Clear form
+                    // Still reload the list for immediate feedback
                     loadUsers() // Reload the user list table
                 } else {
                     const errorData = await response.json().catch(() => ({ detail: `HTTP error ${response.status}` }));
@@ -173,8 +229,9 @@
                 });
 
                 if (response.ok) {
-                    localStorage.setItem('f1TimingUserListTimestamp', Date.now()); // Signal update
+                    // Server will broadcast update via WebSocket
                     showStatus(statusElement, `User '${nameToDelete}' deleted successfully.`, true);
+                    // Still reload the list for immediate feedback
                     loadUsers(); // Reload the user list table
                 } else {
                     const errorData = await response.json().catch(() => ({ detail: `HTTP error ${response.status}` }));
