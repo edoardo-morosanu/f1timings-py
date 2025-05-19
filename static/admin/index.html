@@ -287,6 +287,7 @@
     <script>
       let allLapTimes = [];
       let currentTrack = "";
+      let socket = null;
 
       document.addEventListener("DOMContentLoaded", () => {
         document
@@ -305,20 +306,82 @@
           .getElementById("driverSelect")
           .addEventListener("change", updateTeamDisplayFromSelection);
 
-        // Add storage event listener
-        window.addEventListener('storage', (event) => {
-            // Check if the key that changed is the one we care about
-            if (event.key === 'f1TimingUserListTimestamp') {
-                console.log('Detected user list update via storage event. Reloading users...');
-                loadDefinedUsers(); // Reload the dropdown
-            }
-        });
+        // Initialize WebSocket connection
+        connectWebSocket();
 
         loadDefinedUsers();
         fetchCurrentTrack();
         fetchLapTimes();
-        setInterval(fetchLapTimes, 3000);
+        // Removed polling since we're using WebSockets for updates
       });
+
+      // WebSocket Implementation
+      function connectWebSocket() {
+        // Create WebSocket connection
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+        
+        console.log(`Connecting to WebSocket at ${wsUrl}`);
+        
+        if (socket) {
+          // Close any existing connection
+          socket.close();
+        }
+        
+        socket = new WebSocket(wsUrl);
+        
+        socket.onopen = (event) => {
+          console.log("WebSocket connection established");
+        };
+        
+        socket.onmessage = (event) => {
+          // Parse the JSON message
+          try {
+            const message = JSON.parse(event.data);
+            console.log("Received WebSocket message:", message);
+            handleWebSocketMessage(message);
+          } catch (error) {
+            console.error("Error parsing WebSocket message:", error);
+          }
+        };
+        
+        socket.onclose = (event) => {
+          console.log("WebSocket connection closed");
+          // Attempt to reconnect after a delay
+          setTimeout(connectWebSocket, 2000);
+        };
+        
+        socket.onerror = (error) => {
+          console.error("WebSocket error:", error);
+          socket.close();
+        };
+      }
+
+      function handleWebSocketMessage(message) {
+        switch(message.type) {
+          case "user_update":
+            console.log("User update received:", message);
+            // Reload the user dropdown when users change
+            loadDefinedUsers();
+            break;
+            
+          case "laptime_update":
+            console.log("Lap time update received:", message);
+            // Refresh lap times when updates occur
+            fetchLapTimes();
+            break;
+            
+          case "track_update":
+            console.log("Track update received:", message);
+            // Update track display and refresh lap times
+            fetchCurrentTrack();
+            fetchLapTimes();
+            break;
+            
+          default:
+            console.log("Unknown message type:", message.type);
+        }
+      }
 
       async function loadDefinedUsers() {
         try {
