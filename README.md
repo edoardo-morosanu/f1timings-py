@@ -33,8 +33,6 @@ This is the successor to the original [f1timings-rs](https://github.com/edoardo-
 - **UDP Telemetry Listener:** (Placeholder in `main.py` lifespan) Listen for UDP packets from F1 2x games.
 - **Real-time Data Processing:** Parse telemetry packets.
 - **Enhanced Telemetry Data:** Push processed telemetry data to connected clients in real-time via existing WebSocket infrastructure.
-- **Enhanced Display Frontend:** A web interface (`/display`) that visualizes live data received via WebSockets.
-- **Persistence:** Option to save/load state to/from disk instead of purely in-memory.
 
 ## Technology Stack
 
@@ -86,16 +84,16 @@ This is the successor to the original [f1timings-rs](https://github.com/edoardo-
 
   ```bash
   # Make sure your virtual environment is activated
-  $ uvicorn main:app
+  $ uvicorn app.main:app
   ```
 
   _Alternatively:_
 
   ```bash
-  $ python main.py
+  $ python app.py
   ```
 
-The server listens on `0.0.0.0:8080` by default.
+The server listens on `0.0.0.0:8080` by default, or `0.0.0.0:8000` if using uvicorn to run the program.
 
 ## License
 
