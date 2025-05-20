@@ -123,7 +123,7 @@ class TrackNameResponse(BaseModel):
 
 class ExportResponse(BaseModel):
     success: bool
-    filename: str = ""  # Filename of the *primary* export (e.g., CSV)
+    filename: str = ""
     message: str
 
 

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import Dict, Optional
-from models import (
+from app.models.models import (
     LapTimeInput,
     LapTimeDeleteInput,
     TrackNameInput,
@@ -10,7 +10,7 @@ from models import (
     User,
     UserResponse,
 )
-from helpers import update_overall_fastest_lap
+from app.utils.helpers import update_overall_fastest_lap
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

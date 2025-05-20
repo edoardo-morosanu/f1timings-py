@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple
 
 import aiofiles
 
-from models import Driver, LapTime  # Import necessary models
+from app.models.models import Driver, LapTime  # Import necessary models
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -93,8 +93,7 @@ async def export_to_files(drivers: Dict[str, Driver], track_name: str) -> str:
             csv_filename, mode="w", newline="", encoding="utf-8"
         ) as csvfile:
             writer = csv.writer(csvfile)
-            # Write header - Changed "Fastest" to "Points"
-            await writer.writerow(["Position", "Driver", "Team", "Time", "Points"])
+            await writer.writerow(["Position", "Driver", "Time", "Points"])
             # Write data
             for i, (name, team, lap) in enumerate(lap_data):
                 position = i + 1
@@ -106,7 +105,6 @@ async def export_to_files(drivers: Dict[str, Driver], track_name: str) -> str:
                     [
                         position,
                         name,
-                        team,
                         lap.time,  # Use original time string
                         points,  # Write calculated points
                     ]
