@@ -36,7 +36,7 @@ from app.services.crud import (
     state_lock,
     set_websocket_manager,
 )
-from app.utils.helpers import export_to_files, update_overall_fastest_lap
+from app.utils.helpers import generate_csv_content, update_overall_fastest_lap
 from app.services.websocket import ConnectionManager
 
 # Configure logging
