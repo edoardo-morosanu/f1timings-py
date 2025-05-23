@@ -1,33 +1,34 @@
 import logging
 from typing import Dict
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from app.models.models import (
-    LapTimeInput, 
-    LapTimeDeleteInput, 
-    DriverResponse, 
-    ExportResponse, 
-    TrackNameInput, 
+    LapTimeInput,
+    LapTimeDeleteInput,
+    DriverResponse,
+    ExportResponse,
+    TrackNameInput,
     TrackNameResponse,
-    driver_to_response
+    driver_to_response,
 )
 from app.services.crud import (
-    get_all_drivers, 
-    add_or_update_lap_time, 
-    delete_driver_lap_time, 
-    get_track, 
+    get_all_drivers,
+    add_or_update_lap_time,
+    delete_driver_lap_time,
+    get_track,
     set_track,
     app_data,
-    state_lock
+    state_lock,
 )
-from app.utils.helpers import export_to_files, update_overall_fastest_lap
+from app.utils.helpers import generate_csv_content, update_overall_fastest_lap
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Create router
 router = APIRouter()
+
 
 @router.get("/api/drivers", response_model=Dict[str, DriverResponse], tags=["Drivers"])
 async def get_drivers_endpoint():
@@ -38,6 +39,7 @@ async def get_drivers_endpoint():
         name: driver_to_response(driver) for name, driver in drivers_internal.items()
     }
     return drivers_response
+
 
 @router.post(
     "/api/laptime",
@@ -65,6 +67,7 @@ async def add_lap_time_endpoint(lap_input: LapTimeInput):
         logger.exception(f"Error adding lap time for {lap_input.name}: {e}")
         raise HTTPException(status_code=500, detail="Failed to add lap time")
 
+
 @router.delete("/api/laptime", status_code=200, tags=["Lap Times"])
 async def delete_lap_time_endpoint(delete_input: LapTimeDeleteInput):
     """
@@ -83,11 +86,13 @@ async def delete_lap_time_endpoint(delete_input: LapTimeDeleteInput):
             status_code=404, detail="Driver or specified lap time not found"
         )
 
+
 @router.get("/api/track", response_model=TrackNameResponse, tags=["Track"])
 async def get_track_name_endpoint():
     """Gets the currently set track name."""
     track_name = await get_track()
     return TrackNameResponse(name=track_name or "")  # Return empty string if None
+
 
 @router.post(
     "/api/track", response_model=TrackNameResponse, status_code=200, tags=["Track"]
@@ -99,9 +104,10 @@ async def set_track_name_endpoint(track_input: TrackNameInput):
     updated_track_name = await set_track(track_input)
     return TrackNameResponse(name=updated_track_name)
 
-@router.get("/api/export", response_model=ExportResponse, tags=["Export"])
+
+@router.get("/api/export", tags=["Export"])
 async def export_lap_times_endpoint():
-    """Exports the current fastest lap times to CSV and JSON files."""
+    """Exports the current fastest lap times as a downloadable CSV file."""
     # Acquire lock only to safely read the necessary data
     async with state_lock:
         current_track = app_data.track_name
@@ -113,46 +119,32 @@ async def export_lap_times_endpoint():
 
     if not current_track:
         logger.warning("Export failed: Track name not set.")
-        # Return a JSON response compatible with the ExportResponse model
         return JSONResponse(
             status_code=400,
-            content=ExportResponse(
-                success=False, message="No track name set"
-            ).model_dump(),
+            content={"error": "No track name set"},
         )
 
     if not drivers_copy:
         logger.warning("Export called with no driver data.")
-        # Decide how to handle - allow empty export or return error?
         return JSONResponse(
             status_code=400,
-            content=ExportResponse(
-                success=False, message="No lap time data to export"
-            ).model_dump(),
+            content={"error": "No lap time data to export"},
         )
 
     try:
-        # Run the potentially blocking file I/O in a separate thread
-        # Use the copied data, releasing the lock for the main thread
-        primary_filename = await export_to_files(drivers_copy, current_track)
-        logger.info(f"Export successful. Primary file: {primary_filename}")
-        return ExportResponse(
-            success=True, filename=primary_filename, message="Export successful"
-        )
-    except IOError as e:
-        logger.error(f"Export failed during file write: {e}", exc_info=True)
-        return JSONResponse(
-            status_code=500,
-            content=ExportResponse(
-                success=False, message=f"Export failed: {e}"
-            ).model_dump(),
+        # Generate CSV content
+        filename, csv_content = await generate_csv_content(drivers_copy, current_track)
+        logger.info(f"Export successful. Filename: {filename}")
+
+        # Return CSV as downloadable file
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
     except Exception as e:
         logger.exception(f"Unexpected error during export: {e}")
         return JSONResponse(
             status_code=500,
-            content=ExportResponse(
-                success=False,
-                message=f"An unexpected error occurred during export: {e}",
-            ).model_dump(),
+            content={"error": f"An unexpected error occurred during export: {e}"},
         )

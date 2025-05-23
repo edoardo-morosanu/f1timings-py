@@ -727,9 +727,7 @@
           );
           console.error("Error deleting lap time:", error);
         }
-      }
-
-      async function exportLapTimes() {
+      }      async function exportLapTimes() {
         const statusElement = document.getElementById("exportStatus");
 
         if (!currentTrack) {
@@ -748,27 +746,52 @@
           const response = await fetch("/api/export");
 
           if (response.ok) {
-            const result = await response.json();
-            if (result.success) {
+            // Check if the response is a CSV file
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("text/csv")) {
+              // Get the filename from Content-Disposition header
+              const contentDisposition = response.headers.get("content-disposition");
+              let filename = "export.csv";
+              if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename=(.+)/);
+                if (filenameMatch) {
+                  filename = filenameMatch[1];
+                }
+              }
+
+              // Create blob and download the file
+              const blob = await response.blob();
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = filename;
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+              document.body.removeChild(a);
+
               showStatus(
                 statusElement,
-                `Export successful! File saved on server: ${result.filename}`,
+                `Export successful! File downloaded: ${filename}`,
                 true
               );
             } else {
+              // Handle error response (JSON)
+              const errorData = await response.json();
               showStatus(
                 statusElement,
-                `Export failed: ${result.message || "Unknown reason"}`,
+                `Export failed: ${errorData.error || "Unknown error"}`,
                 false
               );
             }
           } else {
+            // Handle HTTP error responses
             const errorData = await response
               .json()
-              .catch(() => ({ message: `HTTP error ${response.status}` }));
+              .catch(() => ({ error: `HTTP error ${response.status}` }));
             showStatus(
               statusElement,
-              `Export failed: ${errorData.message || "Server error"}`,
+              `Export failed: ${errorData.error || "Server error"}`,
               false
             );
           }

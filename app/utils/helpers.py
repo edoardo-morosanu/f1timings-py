@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
+from io import StringIO
 
 import aiofiles
 
@@ -47,18 +48,14 @@ def update_overall_fastest_lap(drivers: Dict[str, Driver]):
     # return fastest_driver_name, fastest_lap_ref
 
 
-async def export_to_files(drivers: Dict[str, Driver], track_name: str) -> str:
-    """Exports driver lap times to CSV and JSON files."""
-    export_dir = Path("exports")
-    export_dir.mkdir(parents=True, exist_ok=True)  # Create dir if not exists
-
+async def generate_csv_content(
+    drivers: Dict[str, Driver], track_name: str
+) -> Tuple[str, str]:
+    """Generates CSV content for driver lap times and returns filename and content."""
     safe_track_name = track_name.replace(" ", "_").replace(
         "/", "_"
     )  # Sanitize filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    base_filename = f"{safe_track_name}_{timestamp}"
-    csv_filename = export_dir / f"{base_filename}_laptimes.csv"
-    json_filename = export_dir / f"{base_filename}_laptimes.json"
+    filename = f"{safe_track_name}.csv"
 
     # Prepare data: List of tuples (Driver Name, Team, LapTime object)
     lap_data: List[Tuple[str, str, LapTime]] = []
@@ -87,31 +84,29 @@ async def export_to_files(drivers: Dict[str, Driver], track_name: str) -> str:
         14: 1,
     }
 
-    # --- Export to CSV (Async) ---
-    try:
-        async with aiofiles.open(
-            csv_filename, mode="w", newline="", encoding="utf-8"
-        ) as csvfile:
-            writer = csv.writer(csvfile)
-            await writer.writerow(["Position", "Driver", "Time", "Points"])
-            # Write data
-            for i, (name, team, lap) in enumerate(lap_data):
-                position = i + 1
-                points = points_map.get(
-                    position, 0
-                )  # Get points based on position, default 0
+    # Create CSV content using StringIO
+    csv_content = StringIO()
+    writer = csv.writer(csv_content)
 
-                await writer.writerow(
-                    [
-                        position,
-                        name,
-                        lap.time,  # Use original time string
-                        points,  # Write calculated points
-                    ]
-                )
-        logger.info(f"Successfully exported CSV to {csv_filename}")
-    except IOError as e:
-        logger.error(f"Error writing CSV file {csv_filename}: {e}")
-        raise  # Re-raise the exception to be caught by the API endpoint
+    # Write header
+    writer.writerow(["Position", "Driver", "Time", "Points"])
 
-    return str(csv_filename)  # Return the path of the primary export file
+    # Write data
+    for i, (name, team, lap) in enumerate(lap_data):
+        position = i + 1
+        points = points_map.get(position, 0)  # Get points based on position, default 0
+
+        writer.writerow(
+            [
+                position,
+                name,
+                lap.time,
+                points,
+            ]
+        )
+
+    csv_string = csv_content.getvalue()
+    csv_content.close()
+
+    logger.info(f"Successfully generated CSV content for {filename}")
+    return filename, csv_string
