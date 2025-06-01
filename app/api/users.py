@@ -1,9 +1,10 @@
 import logging
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, HTTPException, Path, Depends
 from urllib.parse import unquote
 
 from app.models.models import User, UserResponse, UserListResponse
 from app.services.crud import get_all_users, add_user, delete_user
+from app.dependencies.auth import require_auth
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -11,8 +12,9 @@ logger = logging.getLogger(__name__)
 # Create router
 router = APIRouter(tags=["Users"])
 
+
 @router.get("/api/users", response_model=UserListResponse)
-async def get_users_endpoint():
+async def get_users_endpoint(current_user=Depends(require_auth)):
     """Gets all defined users."""
     users_internal = await get_all_users()
     # Convert internal User model to UserResponse for the API
@@ -22,8 +24,9 @@ async def get_users_endpoint():
     }
     return UserListResponse(users=users_response)
 
+
 @router.post("/api/users", response_model=UserResponse, status_code=201)
-async def add_user_endpoint(user_input: User):
+async def add_user_endpoint(user_input: User, current_user=Depends(require_auth)):
     """Adds a new user or updates the team if the user already exists."""
     try:
         # The add_user crud function now handles adding/updating
@@ -37,9 +40,11 @@ async def add_user_endpoint(user_input: User):
         logger.exception(f"Error adding user {user_input.name}: {e}")
         raise HTTPException(status_code=500, detail="Failed to add user")
 
+
 @router.delete("/api/users/{user_name}", status_code=200)
 async def delete_user_endpoint(
-    user_name: str = Path(..., description="The name of the user to delete")
+    user_name: str = Path(..., description="The name of the user to delete"),
+    current_user=Depends(require_auth),
 ):
     """Deletes a user by their name."""
     # URL Decode the name in case it contains special characters

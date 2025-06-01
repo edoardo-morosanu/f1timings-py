@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Timings - Admin Sessions</title>
+    <style>
+        body {
+            font-family: "Arial", sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            padding: 30px;
+            margin: 0;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #2a2a2a;
+            border-radius: 8px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background-color: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background-color: #b91c1c;
+        }
+
+        .btn.primary {
+            background-color: #2563eb;
+        }
+
+        .btn.primary:hover {
+            background-color: #1d4ed8;
+        }
+
+        .card {
+            background-color: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: #f3f4f6;
+        }
+
+        .sessions-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .session-item {
+            background-color: #374151;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #10b981;
+        }
+
+        .session-item.current {
+            border-left-color: #f59e0b;
+        }
+
+        .session-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            font-size: 14px;
+            color: #d1d5db;
+        }
+
+        .admin-users-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .user-item {
+            background-color: #374151;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .user-item.current {
+            border-left-color: #f59e0b;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #10b981;
+        }
+
+        .stat-label {
+            color: #9ca3af;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>F1 Timings - Admin Sessions</h1>
+            <div class="user-info">
+                <span id="currentUser">Loading...</span>
+            </div>
+        </div>
+        <div class="nav-buttons">
+            <a href="/admin" class="btn primary">Back to Admin</a>
+            <button id="logoutBtn" class="btn">Logout</button>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-number" id="activeSessions">-</div>
+            <div class="stat-label">Active Sessions</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="totalAdmins">-</div>
+            <div class="stat-label">Total Admin Users</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🔐 Active Admin Sessions</h2>
+        <div id="sessionsContainer">
+            <p>Loading sessions...</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>👥 Admin Users</h2>
+        <div id="adminUsersContainer">
+            <p>Loading admin users...</p>
+        </div>
+    </div>
+
+    <script>
+        let currentUsername = '';
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthStatus();
+            loadSessionsData();
+            loadAdminUsers();
+            
+            // Auto-refresh every 30 seconds
+            setInterval(loadSessionsData, 30000);
+            
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+        });
+
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.authenticated) {
+                        currentUsername = data.username;
+                        document.getElementById('currentUser').textContent = `Logged in as: ${data.username}`;
+                        document.getElementById('activeSessions').textContent = data.active_sessions;
+                    } else {
+                        window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                    }
+                } else {
+                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                }
+            } catch (error) {
+                console.error('Error checking auth status:', error);
+                window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+            }
+        }
+
+        async function loadSessionsData() {
+            try {
+                const response = await fetch('/api/auth/sessions');
+                if (response.ok) {
+                    const data = await response.json();
+                    displaySessions(data.active_sessions);
+                    document.getElementById('activeSessions').textContent = data.total_count;
+                } else {
+                    document.getElementById('sessionsContainer').innerHTML = '<p>Error loading sessions data</p>';
+                }
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                document.getElementById('sessionsContainer').innerHTML = '<p>Error loading sessions data</p>';
+            }
+        }
+
+        async function loadAdminUsers() {
+            try {
+                const response = await fetch('/api/auth/users');
+                if (response.ok) {
+                    const data = await response.json();
+                    displayAdminUsers(data.admin_users);
+                    document.getElementById('totalAdmins').textContent = data.admin_users.length;
+                } else {
+                    document.getElementById('adminUsersContainer').innerHTML = '<p>Error loading admin users</p>';
+                }
+            } catch (error) {
+                console.error('Error loading admin users:', error);
+                document.getElementById('adminUsersContainer').innerHTML = '<p>Error loading admin users</p>';
+            }
+        }
+
+        function displaySessions(sessions) {
+            const container = document.getElementById('sessionsContainer');
+            
+            if (sessions.length === 0) {
+                container.innerHTML = '<p>No active sessions</p>';
+                return;
+            }
+
+            const sessionsHtml = sessions.map(session => `
+                <div class="session-item ${session.username === currentUsername ? 'current' : ''}">
+                    <h4>${session.username} ${session.username === currentUsername ? '(You)' : ''}</h4>
+                    <div class="session-meta">
+                        <div><strong>Session:</strong> ${session.session_id}</div>
+                        <div><strong>Created:</strong> ${new Date(session.created_at).toLocaleString()}</div>
+                        <div><strong>Last Active:</strong> ${new Date(session.last_accessed).toLocaleString()}</div>
+                        <div><strong>Duration:</strong> ${session.duration}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = `<div class="sessions-grid">${sessionsHtml}</div>`;
+        }
+
+        function displayAdminUsers(users) {
+            const container = document.getElementById('adminUsersContainer');
+            
+            const usersHtml = users.map(user => `
+                <div class="user-item ${user.username === currentUsername ? 'current' : ''}">
+                    <h4>${user.username} ${user.username === currentUsername ? '(You)' : ''}</h4>
+                    <div>Status: ${user.is_active ? '✅ Active' : '❌ Inactive'}</div>
+                </div>
+            `).join('');
+
+            container.innerHTML = `<div class="admin-users-grid">${usersHtml}</div>`;
+        }
+
+        async function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST',
+                });
+
+                if (response.ok) {
+                    window.location.href = '/login';
+                } else {
+                    console.error('Logout failed');
+                    alert('Logout failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error during logout:', error);
+                alert('Network error during logout. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>

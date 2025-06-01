@@ -39,10 +39,15 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>User Management</h1>
+    <div class="container">        <header>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h1>User Management</h1>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span id="currentUser" style="color: #9ca3af; font-size: 14px;"></span>
+                    <button id="logoutBtn" class="danger" style="padding: 8px 16px; font-size: 14px;">Logout</button>
+                </div>            </div>
             <a href="/admin/" class="nav-link">Back to Admin Panel</a>
+            <a href="/admin/sessions.html" class="nav-link">Admin Sessions</a>
         </header>
 
         <div class="admin-section">
@@ -86,16 +91,18 @@
 
     <script>
         // WebSocket connection
-        let socket = null;
-
-        document.addEventListener('DOMContentLoaded', () => {
+        let socket = null;        document.addEventListener('DOMContentLoaded', () => {
             // Initialize WebSocket connection
             connectWebSocket();
+            
+            // Check authentication and load user info
+            checkAuthStatus();
             
             // Initial data load
             loadUsers(); // Load users from API on page load
             
             document.getElementById('addUserBtn').addEventListener('click', addUser);
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
         });
         
         // WebSocket Implementation
@@ -138,13 +145,57 @@
                 console.error("WebSocket error:", error);
                 socket.close();
             };
-        }
-
-        function handleWebSocketMessage(message) {
+        }        function handleWebSocketMessage(message) {
             if (message.type === "user_update") {
                 console.log("User update received:", message);
                 // Reload the user list when changes occur
                 loadUsers();
+            }
+        }
+
+        // Authentication functions
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.authenticated) {
+                        document.getElementById('currentUser').textContent = `Logged in as: ${data.username}`;
+                    } else {
+                        // Not authenticated, redirect to login
+                        window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                    }
+                } else {
+                    // Error checking auth, redirect to login
+                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                }
+            } catch (error) {
+                console.error('Error checking auth status:', error);
+                // Network error, still redirect to login
+                window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+            }
+        }
+
+        async function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST',
+                });
+
+                if (response.ok) {
+                    // Redirect to login page
+                    window.location.href = '/login';
+                } else {
+                    console.error('Logout failed');
+                    alert('Logout failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error during logout:', error);
+                alert('Network error during logout. Please try again.');
             }
         }
 

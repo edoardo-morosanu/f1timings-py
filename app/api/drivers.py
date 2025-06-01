@@ -1,6 +1,6 @@
 import logging
 from typing import Dict
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse, Response
 
 from app.models.models import (
@@ -22,6 +22,7 @@ from app.services.crud import (
     state_lock,
 )
 from app.utils.helpers import generate_csv_content, update_overall_fastest_lap
+from app.dependencies.auth import require_auth
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ router = APIRouter()
 
 
 @router.get("/api/drivers", response_model=Dict[str, DriverResponse], tags=["Drivers"])
-async def get_drivers_endpoint():
+async def get_drivers_endpoint(current_user=Depends(require_auth)):
     """Gets all current drivers and their fastest lap times."""
     drivers_internal = await get_all_drivers()
     # Convert internal Driver model to the DriverResponse model for the API
@@ -47,7 +48,9 @@ async def get_drivers_endpoint():
     status_code=200,
     tags=["Lap Times"],
 )
-async def add_lap_time_endpoint(lap_input: LapTimeInput):
+async def add_lap_time_endpoint(
+    lap_input: LapTimeInput, current_user=Depends(require_auth)
+):
     """
     Adds a lap time for a driver. Creates the driver if they don't exist.
     Only the fastest lap per driver is stored and returned.
@@ -69,7 +72,9 @@ async def add_lap_time_endpoint(lap_input: LapTimeInput):
 
 
 @router.delete("/api/laptime", status_code=200, tags=["Lap Times"])
-async def delete_lap_time_endpoint(delete_input: LapTimeDeleteInput):
+async def delete_lap_time_endpoint(
+    delete_input: LapTimeDeleteInput, current_user=Depends(require_auth)
+):
     """
     Deletes the specified lap time for a driver.
     Since only the fastest lap is stored, this removes the driver's time if it matches.
@@ -88,7 +93,7 @@ async def delete_lap_time_endpoint(delete_input: LapTimeDeleteInput):
 
 
 @router.get("/api/track", response_model=TrackNameResponse, tags=["Track"])
-async def get_track_name_endpoint():
+async def get_track_name_endpoint(current_user=Depends(require_auth)):
     """Gets the currently set track name."""
     track_name = await get_track()
     return TrackNameResponse(name=track_name or "")  # Return empty string if None
@@ -97,7 +102,9 @@ async def get_track_name_endpoint():
 @router.post(
     "/api/track", response_model=TrackNameResponse, status_code=200, tags=["Track"]
 )
-async def set_track_name_endpoint(track_input: TrackNameInput):
+async def set_track_name_endpoint(
+    track_input: TrackNameInput, current_user=Depends(require_auth)
+):
     """Sets the track name."""
     if not track_input.name or not track_input.name.strip():
         raise HTTPException(status_code=400, detail="Track name cannot be empty")
@@ -106,7 +113,7 @@ async def set_track_name_endpoint(track_input: TrackNameInput):
 
 
 @router.get("/api/export", tags=["Export"])
-async def export_lap_times_endpoint():
+async def export_lap_times_endpoint(current_user=Depends(require_auth)):
     """Exports the current fastest lap times as a downloadable CSV file."""
     # Acquire lock only to safely read the necessary data
     async with state_lock:

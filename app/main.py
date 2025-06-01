@@ -6,7 +6,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request, Path
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 
@@ -38,6 +38,7 @@ from app.services.crud import (
 )
 from app.utils.helpers import generate_csv_content, update_overall_fastest_lap
 from app.services.websocket import ConnectionManager
+from app.dependencies.auth import check_admin_auth_middleware, get_current_user
 
 # Configure logging
 logging.basicConfig(
@@ -73,6 +74,12 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all standard methods
     allow_headers=["*"],  # Allow all headers
 )
+
+
+# Add authentication middleware for admin routes
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    return await check_admin_auth_middleware(request, call_next)
 
 
 # -- WebSocket Connection Management ---
@@ -125,12 +132,24 @@ async def general_exception_handler(request: Request, exc: Exception):
 # --- Import API Routers ---
 from app.api.users import router as users_router
 from app.api.drivers import router as drivers_router
+from app.api.auth import router as auth_router
 
 # --- Include Routers ---
+app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(drivers_router)
 
 # You can still add additional routes here if necessary
+
+
+# --- Login Route ---
+@app.get("/login")
+async def login_page():
+    """Serve the login page."""
+    with open("static/login.html", "r", encoding="utf-8") as f:
+        content = f.read()
+    return Response(content=content, media_type="text/html")
+
 
 # --- Static Files Serving ---
 # Serve specific admin/display routes first
