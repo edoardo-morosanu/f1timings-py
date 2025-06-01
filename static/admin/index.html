@@ -199,9 +199,14 @@
     </style>
   </head>
   <body>
-    <div class="container">
-      <header>
-        <h1>F1 24 Admin Panel</h1>
+    <div class="container">      <header>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h1>F1 24 Admin Panel</h1>
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <span id="currentUser" style="color: #9ca3af; font-size: 14px;"></span>
+            <button id="logoutBtn" class="secondary" style="padding: 8px 16px; font-size: 14px;">Logout</button>
+          </div>
+        </div>
       </header>
 
       <div class="admin-section">
@@ -221,8 +226,7 @@
       </div>
 
       <div class="admin-grid">
-        <div class="admin-section">
-          <h2>
+        <div class="admin-section">          <h2>
             Add Lap Time
             <a href="/admin/users" class="nav-link">Manage Users</a>
           </h2>
@@ -287,9 +291,7 @@
     <script>
       let allLapTimes = [];
       let currentTrack = "";
-      let socket = null;
-
-      document.addEventListener("DOMContentLoaded", () => {
+      let socket = null;      document.addEventListener("DOMContentLoaded", () => {
         document
           .getElementById("setTrackBtn")
           .addEventListener("click", setTrackName);
@@ -305,17 +307,20 @@
         document
           .getElementById("driverSelect")
           .addEventListener("change", updateTeamDisplayFromSelection);
+        document
+          .getElementById("logoutBtn")
+          .addEventListener("click", handleLogout);
 
         // Initialize WebSocket connection
         connectWebSocket();
 
+        // Check authentication and load user info
+        checkAuthStatus();
         loadDefinedUsers();
         fetchCurrentTrack();
         fetchLapTimes();
         // Removed polling since we're using WebSockets for updates
-      });
-
-      // WebSocket Implementation
+      });      // WebSocket Implementation
       function connectWebSocket() {
         // Create WebSocket connection
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -355,6 +360,52 @@
           console.error("WebSocket error:", error);
           socket.close();
         };
+      }
+
+      // Authentication functions
+      async function checkAuthStatus() {
+        try {
+          const response = await fetch('/api/auth/status');
+          if (response.ok) {
+            const data = await response.json();
+            if (data.authenticated) {
+              document.getElementById('currentUser').textContent = `Logged in as: ${data.username}`;
+            } else {
+              // Not authenticated, redirect to login
+              window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+            }
+          } else {
+            // Error checking auth, redirect to login
+            window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+          }
+        } catch (error) {
+          console.error('Error checking auth status:', error);
+          // Network error, still redirect to login
+          window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+        }
+      }
+
+      async function handleLogout() {
+        if (!confirm('Are you sure you want to logout?')) {
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/logout', {
+            method: 'POST',
+          });
+
+          if (response.ok) {
+            // Redirect to login page
+            window.location.href = '/login';
+          } else {
+            console.error('Logout failed');
+            alert('Logout failed. Please try again.');
+          }
+        } catch (error) {
+          console.error('Error during logout:', error);
+          alert('Network error during logout. Please try again.');
+        }
       }
 
       function handleWebSocketMessage(message) {
