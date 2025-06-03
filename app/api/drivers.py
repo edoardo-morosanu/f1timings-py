@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Dict, List
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse, Response
 
@@ -10,6 +10,7 @@ from app.models.models import (
     ExportResponse,
     TrackNameInput,
     TrackNameResponse,
+    TrackData,
     driver_to_response,
 )
 from app.services.crud import (
@@ -22,6 +23,7 @@ from app.services.crud import (
     state_lock,
 )
 from app.utils.helpers import generate_csv_content, update_overall_fastest_lap
+from app.services.track_service import track_service
 from app.dependencies.auth import require_auth
 
 # Configure logging
@@ -110,6 +112,28 @@ async def set_track_name_endpoint(
         raise HTTPException(status_code=400, detail="Track name cannot be empty")
     updated_track_name = await set_track(track_input)
     return TrackNameResponse(name=updated_track_name)
+
+
+@router.get("/api/track/data", response_model=TrackData, tags=["Track"])
+async def get_track_data_endpoint(track: str = None):
+    """Gets the track data for the specified track or currently set track (no auth required for display)."""
+    track_name = track if track else await get_track()
+    if not track_name:
+        raise HTTPException(status_code=404, detail="No track name set or specified")
+
+    track_data = await track_service.load_track_data(track_name)
+    if not track_data:
+        raise HTTPException(
+            status_code=404, detail=f"Track data not found for '{track_name}'"
+        )
+
+    return track_data
+
+
+@router.get("/api/tracks", response_model=List[str], tags=["Track"])
+async def get_available_tracks_endpoint():
+    """Gets list of available tracks (no auth required for display)."""
+    return track_service.get_available_tracks()
 
 
 @router.get("/api/export", tags=["Export"])

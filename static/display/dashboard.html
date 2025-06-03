@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>F1 24 Dashboard - Track Map & Leaderboard</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto+Mono:wght@400;600;700&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Orbitron", "Arial", sans-serif;
+      background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+      color: #ffffff;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .dashboard-container {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      grid-template-rows: 70px calc(100vh - 110px);
+      height: 100vh;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    /* Header */
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(30, 30, 50, 0.6);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 0 24px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .header img {
+      height: 50px;
+      width: auto;
+      max-width: 120px;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .track-title {
+      color: #ef4444;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background-color: #065f46;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #10b981;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Leaderboard */
+    .leaderboard {
+      background: rgba(30, 30, 50, 0.6);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      height: 98%;
+      min-height: 0;
+    }
+
+    .leaderboard-header {
+      padding: 20px;
+      background: rgba(20, 20, 35, 0.8);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
+    }
+
+    .leaderboard-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #ffffff;
+    }
+
+    .leaderboard-subtitle {
+      font-size: 12px;
+      color: #a0a0b0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .leaderboard-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      min-height: 0;
+    }
+
+    .driver-row {
+      display: grid;
+      grid-template-columns: 40px 1fr 80px;
+      gap: 12px;
+      align-items: center;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .driver-row::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 12px;
+      padding: 1px;
+      background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .driver-row:hover::before {
+      opacity: 1;
+    }
+
+    .driver-row:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    }
+
+    .driver-row.fastest {
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      box-shadow: 0 0 30px rgba(168, 85, 247, 0.2);
+    }
+
+    .driver-row.redbull {
+      background: linear-gradient(135deg, rgba(6, 0, 239, 0.15) 0%, rgba(30, 64, 175, 0.05) 100%);
+    }
+
+    .driver-row.mclaren {
+      background: linear-gradient(135deg, rgba(255, 135, 0, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%);
+    }
+
+    .position {
+      font-size: 20px;
+      font-weight: 800;
+      text-align: center;
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .driver-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .driver-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .driver-team {
+      font-size: 11px;
+      color: #a0a0b0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .lap-time {
+      font-family: "Roboto Mono", "Courier New", monospace;
+      font-size: 16px;
+      font-weight: 700;
+      text-align: right;
+      color: #ffffff;
+    }
+
+    .lap-time.fastest {
+      color: #a855f7;
+      text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+    }
+
+    /* Track Map */
+    .track-container {
+      display: flex;
+      flex-direction: column;
+      height: 98%;
+      min-height: 0;
+    }
+
+    .track-header {
+      padding: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(30, 30, 50, 0.6);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      margin-bottom: 20px;
+      flex-shrink: 0;
+    }
+
+    .track-title-section {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .track-name {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #ffffff;
+    }
+
+    .track-info {
+      font-size: 12px;
+      color: #a0a0b0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .fastest-lap-info {
+      text-align: right;
+    }
+
+    .fastest-lap-label {
+      font-size: 12px;
+      color: #a855f7;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .fastest-lap-time {
+      font-family: "Roboto Mono", "Courier New", monospace;
+      font-size: 18px;
+      font-weight: 700;
+      color: #a855f7;
+      text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+    }    .track-map {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      border-radius: 15px;
+      background: rgba(30, 30, 50, 0.3);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      width: 100%;
+      min-height: 0;
+    }    #trackCanvas {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 8px;
+    }
+
+    .track-placeholder {
+      width: 100%;
+      height: 100%;
+      max-width: 600px;
+      max-height: 400px;
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: #a0a0b0;
+      font-size: 16px;
+      font-weight: 600;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .track-placeholder::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.1), transparent);
+      animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+
+    .track-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+
+    /* No data states */
+    .no-data {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: #a0a0b0;
+      font-style: italic;
+    }
+
+    /* Scrollbar styles */
+    .leaderboard-content::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .leaderboard-content::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+    }
+
+    .leaderboard-content::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+    }
+
+    .leaderboard-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1200px) {
+      .dashboard-container {
+        grid-template-columns: 320px 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: 70px 350px 1fr;
+        gap: 15px;
+        padding: 15px;
+      }
+      
+      .header h1 {
+        font-size: 18px;
+      }
+      
+      .header img {
+        height: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <img src="img/NHLStenden.png" alt="NHLStenden Logo" />
+        <h1>
+          F1(24) <span id="trackTitle" class="track-title">DASHBOARD</span>
+        </h1>
+      </div>
+      <div class="header-right">
+        <div class="status-indicator">
+          <div class="status-dot"></div>
+          <span>LIVE</span>
+        </div>
+        <img src="img/HBOSport.png" alt="HBO Sport Logo" />
+      </div>
+    </header>
+
+    <!-- Leaderboard -->
+    <div class="leaderboard">
+      <div class="leaderboard-header">
+        <div class="leaderboard-title">Live Timing</div>
+        <div class="leaderboard-subtitle">Fastest Lap Times</div>
+      </div>
+      <div class="leaderboard-content" id="leaderboardContent">
+        <div class="no-data">
+          <div style="font-size: 24px; margin-bottom: 12px;">⏱️</div>
+          <div>No timing data available</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Track Map -->
+    <div class="track-container">
+      <div class="track-header">
+        <div class="track-title-section">
+          <div class="track-name" id="trackName">Circuit Name</div>
+          <div class="track-info">Track Map</div>
+        </div>
+        <div class="fastest-lap-info" id="fastestLapInfo" style="display: none;">
+          <div class="fastest-lap-label">Fastest Lap</div>
+          <div class="fastest-lap-time" id="fastestLapTime">--:--.---</div>
+        </div>
+      </div>      <div class="track-map">
+        <canvas id="trackCanvas" width="900" height="600" style="display: none;"></canvas>
+        <div class="track-placeholder" id="trackPlaceholder">
+          <div class="track-icon">🏁</div>
+          <div>Track Map Placeholder</div>
+          <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">
+            Track visualization will appear here
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>  <script>
+    // Global variables
+    let currentTrack = "";
+    let trackData = null;
+    let allDriverData = {};
+    let socket;
+    let canvas, ctx;
+    let driverMarkers = {};
+    let currentDriverPositions = {};
+    let currentDriverInfo = {};
+    
+    // Team colors for driver markers (matching backend)
+    const TEAM_COLORS = {
+      0: "#F0F0F0",  // Mercedes
+      1: "#DC0000",  // Ferrari
+      2: "#0600EF",  // Red Bull
+      3: "#005AFF",  // Williams
+      4: "#005F0B",  // Aston Martin
+      5: "#FF8700",  // Alpine
+      6: "#FFFFFF",  // AlphaTauri
+      7: "#FF8700",  // Haas
+      8: "#FF8700",  // McLaren
+      9: "#900000",  // Alfa Romeo
+      10: "#0600EF", // Red Bull B-Team
+      11: "#0600EF", // Red Bull Academy
+      85: "#900000", // Mercedes 2020
+      86: "#DC0000", // Ferrari 2020
+      87: "#0600EF", // Red Bull 2020
+      88: "#005AFF", // Williams 2020
+      89: "#005F0B", // Racing Point 2020
+      90: "#FF8700", // Renault 2020
+      91: "#FFFFFF", // Alpha Tauri 2020
+      92: "#FF8700", // Haas 2020
+    };
+    
+    // Track dictionary with scaling parameters (matching backend)
+    const TRACK_DICTIONARY = {
+      'melbourne': {'d': 3.5, 'x_offset': 300, 'z_offset': 300},
+      'paul_ricard': {'d': 2.5, 'x_offset': 500, 'z_offset': 300},
+      'shanghai': {'d': 2, 'x_offset': 300, 'z_offset': 300},
+      'sakhir': {'d': 2, 'x_offset': 600, 'z_offset': 350},
+      'catalunya': {'d': 2.5, 'x_offset': 400, 'z_offset': 300},
+      'monaco': {'d': 2, 'x_offset': 300, 'z_offset': 300},
+      'montreal': {'d': 3, 'x_offset': 300, 'z_offset': 100},
+      'silverstone': {'d': 3.5, 'x_offset': 400, 'z_offset': 250},
+      'hockenheim': {'d': 2, 'x_offset': 300, 'z_offset': 300},
+      'hungaroring': {'d': 2.5, 'x_offset': 400, 'z_offset': 300},
+      'spa': {'d': 3.5, 'x_offset': 500, 'z_offset': 350},
+      'monza': {'d': 4, 'x_offset': 400, 'z_offset': 300},
+      'singapore': {'d': 2, 'x_offset': 400, 'z_offset': 300},
+      'suzuka': {'d': 2.5, 'x_offset': 500, 'z_offset': 300},
+      'abu_dhabi': {'d': 2, 'x_offset': 500, 'z_offset': 250},
+      'texas': {'d': 2, 'x_offset': 400, 'z_offset': 50},
+      'brazil': {'d': 2, 'x_offset': 600, 'z_offset': 250},
+      'austria': {'d': 2, 'x_offset': 300, 'z_offset': 300},
+      'sochi': {'d': 2, 'x_offset': 300, 'z_offset': 300},
+      'mexico': {'d': 2.5, 'x_offset': 500, 'z_offset': 500},
+      'baku': {'d': 3, 'x_offset': 400, 'z_offset': 400},
+      'sakhir_short': {'d': 2, 'x_offset': 300, 'z_offset': 300},
+      'silverstone_short': {'d': 2, 'x_offset': 300, 'z_offset': 300},
+      'texas_short': {'d': 2, 'x_offset': 300, 'z_offset': 300},
+      'suzuka_short': {'d': 2, 'x_offset': 300, 'z_offset': 300},
+      'hanoi': {'d': 2, 'x_offset': 300, 'z_offset': 300},
+      'zandvoort': {'d': 4, 'x_offset': 400, 'z_offset': 250},
+      'imola': {'d': 2, 'x_offset': 500, 'z_offset': 300},
+      'portimao': {'d': 2, 'x_offset': 300, 'z_offset': 300},
+      'jeddah': {'d': 4, 'x_offset': 500, 'z_offset': 350},
+      'miami': {'d': 2, 'x_offset': 400, 'z_offset': 300},
+      'las_vegas': {'d': 4, 'x_offset': 400, 'z_offset': 300},
+      'losail': {'d': 2.5, 'x_offset': 400, 'z_offset': 300}
+    };
+
+    // Width constant for line drawing (increased for better visibility)
+    const WIDTH_POINTS = 8;
+    
+    // F1 2024 Team Colors with complete mapping (alternative color scheme)
+    const TEAM_COLORS_2024 = {
+      0: '#00D2BE', // Mercedes
+      1: '#DC0000', // Ferrari
+      2: '#0600EF', // Red Bull 
+      3: '#005AFF', // Williams
+      4: '#006F62', // Aston Martin
+      5: '#0090FF', // Alpine
+      6: '#2B4562', // AlphaTauri
+      7: '#F0D787', // Haas
+      8: '#FF8700', // McLaren
+      9: '#900000', // Alfa Romeo
+      10: '#FF8700', // McLaren (duplicate for API compatibility)
+      11: '#0600EF', // Red Bull Racing (duplicate for API compatibility)
+      99: '#FFFFFF', // Unknown team
+      "-1": '#FFFFFF' // Default
+    };
+    
+    // Setup event listeners when the page loads
+    document.addEventListener("DOMContentLoaded", () => {
+      // Initialize canvas
+      canvas = document.getElementById('trackCanvas');
+      ctx = canvas.getContext('2d');
+      
+      // Load track name from API or localStorage
+      fetchTrackName();
+
+      // Connect to WebSocket
+      connectWebSocket();
+      
+      // Initial data load
+      loadDisplayData();
+    });
+    
+    // WebSocket Implementation
+    function connectWebSocket() {
+      // Create WebSocket connection
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+      
+      console.log(`Connecting to WebSocket at ${wsUrl}`);
+      
+      if (socket) {
+        // Close any existing connection
+        socket.close();
+      }
+      
+      socket = new WebSocket(wsUrl);
+      socket.onopen = function(e) {
+        console.log("WebSocket connection established");
+      };
+
+      socket.onmessage = function(event) {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("WebSocket message received:", data);
+
+          // Handle different message types
+          if (data.type === "laptime_update") {
+            loadDisplayData();
+          } else if (data.type === "telemetry") {
+            // Handle telemetry data for driver positions
+            console.log("Telemetry data received:", data);
+            
+            // Enhanced telemetry data handling to support all formats
+            // 1. Direct array of drivers
+            if (Array.isArray(data.drivers) && data.drivers.length > 0) {
+              console.log(`Received telemetry array for ${data.drivers.length} drivers on track ${data.track}`);
+              updateDriverPositions(data.drivers, data.track);
+            } 
+            // 2. Object with driver IDs as keys
+            else if (data.drivers && typeof data.drivers === 'object' && Object.keys(data.drivers).length > 0) {
+              console.log(`Received telemetry object for ${Object.keys(data.drivers).length} drivers on track ${data.track}`);
+              updateDriverPositions(data.drivers, data.track);
+            }
+            // 3. Nested telemetry structure
+            else if (data.data && data.data.drivers) {
+              const nestedDrivers = data.data.drivers;
+              const trackName = data.data.track_name || data.track || currentTrack;
+              console.log(`Received nested telemetry for drivers on track ${trackName}`);
+              updateDriverPositions(nestedDrivers, trackName);
+            }
+            // 4. No valid driver data found
+            else {
+              console.warn("Received telemetry data but no valid driver data was found", data);
+            }
+          } else {
+            // Try to use the handleWebSocketMessage function for other message types
+            handleWebSocketMessage(data);
+          }
+        } catch (error) {
+          console.error("Error processing WebSocket message:", error, event.data);
+        }
+      };
+
+      socket.onclose = (event) => {
+        console.log("WebSocket connection closed");
+        // Attempt to reconnect after a delay
+        setTimeout(connectWebSocket, 3000);
+      };
+      
+      socket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        socket.close();
+      };
+    }
+
+    function handleWebSocketMessage(message) {
+      switch(message.type) {
+        case "user_update":
+          console.log("User update received:", message);
+          break;
+          
+        case "laptime_update":
+          console.log("Lap time update received:", message);
+          loadDisplayData();
+          break;
+          
+        case "track_update":
+          console.log("Track update received:", message);
+          if (message.data && message.data.name) {
+            currentTrack = message.data.name;
+            updateTrackTitle();
+            loadTrackData(); // Load track visualization when track changes
+          }
+          loadDisplayData();
+          break;          
+        
+        case "telemetry":
+        case "telemetry_update":
+          console.log("Telemetry update received:", message);
+          
+          // Enhanced telemetry handling to match the socket.onmessage implementation
+          // 1. Direct array of drivers
+          if (Array.isArray(message.drivers) && message.drivers.length > 0) {
+            console.log(`Handler: Received telemetry array for ${message.drivers.length} drivers`);
+            updateDriverPositions(message.drivers, message.track || currentTrack);
+          } 
+          // 2. Object with driver IDs as keys
+          else if (message.drivers && typeof message.drivers === 'object' && Object.keys(message.drivers).length > 0) {
+            console.log(`Handler: Received telemetry object with ${Object.keys(message.drivers).length} drivers`);
+            updateDriverPositions(message.drivers, message.track || currentTrack);
+          }
+          // 3. Nested in data property
+          else if (message.data && message.data.drivers) {
+            console.log(`Handler: Received telemetry in data property`);
+            const trackName = message.data.track_name || message.track || currentTrack;
+            updateDriverPositions(message.data.drivers, trackName);
+          }
+          // 4. Deeply nested in data.telemetry
+          else if (message.data && message.data.telemetry && message.data.telemetry.drivers) {
+            console.log(`Handler: Received deeply nested telemetry data`);
+            const driverData = message.data.telemetry;
+            const trackName = driverData.track_name || message.track || currentTrack;
+            updateDriverPositions(driverData.drivers, trackName);
+          }
+          // 5. No valid driver data
+          else {
+            console.warn("Handler: Received telemetry message but no valid driver data was found", message);
+          }
+          break;
+          
+        default:
+          console.log("Unknown message type:", message.type);
+      }
+    }    async function fetchTrackName() {
+      try {
+        const response = await fetch("/api/track");
+        if (response.ok) {
+          const data = await response.json();
+          currentTrack = data.name;
+          updateTrackTitle();
+          // Load track data after setting track name
+          await loadTrackData();
+        } else {
+          const savedTrack = localStorage.getItem("currentTrack");
+          if (savedTrack) {
+            currentTrack = savedTrack;
+            updateTrackTitle();
+            // Load track data for saved track
+            await loadTrackData();
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching track name:", error);
+        const savedTrack = localStorage.getItem("currentTrack");
+        if (savedTrack) {
+          currentTrack = savedTrack;
+          updateTrackTitle();
+          // Load track data for saved track
+          await loadTrackData();
+        }
+      }
+    }    async function loadTrackData() {
+      if (!currentTrack) {
+        console.log("No track set, skipping track data load");
+        return;
+      }
+
+      try {
+        console.log(`Loading track data for: ${currentTrack}`);
+        // Try to load track data with the specific track parameter
+        const response = await fetch(`/api/track/data?track=${encodeURIComponent(currentTrack)}`);
+        
+        if (response.ok) {
+          trackData = await response.json();
+          console.log(`Track data loaded for ${trackData.name}:`, trackData);
+          displayTrackMapCanvas(trackData);
+        } else {
+          console.warn(`No track data found for ${currentTrack}`);
+          displayNoTrackData();
+        }
+      } catch (error) {
+        console.error("Error loading track data:", error);
+        displayNoTrackData();
+      }
+    }    function displayTrackMapCanvas(trackData) {
+      if (!trackData || !trackData.points || trackData.points.length === 0) {
+        displayNoTrackData();
+        return;
+      }
+
+      // Check if we have scaling parameters for this track
+      const trackParams = TRACK_DICTIONARY[currentTrack.toLowerCase()];
+      if (!trackParams) {
+        console.warn(`No visualization parameters available for ${currentTrack}`);
+        displayNoTrackData();
+        return;
+      }
+
+      // Show canvas, hide placeholder
+      canvas.style.display = 'block';
+      document.getElementById('trackPlaceholder').style.display = 'none';
+
+      // Draw the track using the exact same algorithm as the reference
+      drawTrackOnCanvas(trackData, trackParams);
+      
+      // Update track name
+      const trackNameElement = document.getElementById("trackName");
+      if (trackNameElement) {
+        trackNameElement.textContent = trackData.name.toUpperCase();
+      }
+      
+      console.log(`Track map displayed for ${trackData.name} with ${trackData.points.length} points`);
+    }    function drawTrackOnCanvas(trackData, params) {
+      const { d, x_offset, z_offset } = params;
+      const points = trackData.points;
+      
+      if (points.length < 2) {
+        console.warn('Not enough points to draw track');
+        displayNoTrackData();
+        return;
+      }
+
+      // Clear canvas completely (transparent background)
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Set line style - simple white line (thicker for better visibility)
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#FFFFFF';
+
+      // Transform coordinates using the exact same algorithm as reference
+      const transformedPoints = points.map(point => ({
+        x: (point.pos_z / d) + x_offset,
+        y: (point.pos_x / d) + z_offset
+      }));
+
+      // Calculate bounds of transformed points
+      const minX = Math.min(...transformedPoints.map(p => p.x));
+      const maxX = Math.max(...transformedPoints.map(p => p.x));
+      const minY = Math.min(...transformedPoints.map(p => p.y));
+      const maxY = Math.max(...transformedPoints.map(p => p.y));
+      
+      // Calculate track dimensions
+      const trackWidth = maxX - minX;
+      const trackHeight = maxY - minY;
+      
+      // Calculate scale to fit track in canvas with padding
+      const padding = 40;
+      const availableWidth = canvas.width - (2 * padding);
+      const availableHeight = canvas.height - (2 * padding);
+      const scale = Math.min(availableWidth / trackWidth, availableHeight / trackHeight);
+      
+      // Calculate centering offsets
+      const scaledWidth = trackWidth * scale;
+      const scaledHeight = trackHeight * scale;
+      const centerOffsetX = (canvas.width - scaledWidth) / 2;
+      const centerOffsetY = (canvas.height - scaledHeight) / 2;
+
+      // Apply centering and scaling to all points
+      const centeredPoints = transformedPoints.map(point => ({
+        x: (point.x - minX) * scale + centerOffsetX,
+        y: (point.y - minY) * scale + centerOffsetY
+      }));
+
+      // Draw track as one continuous white line
+      ctx.beginPath();
+      centeredPoints.forEach((point, index) => {
+        if (index === 0) {
+          ctx.moveTo(point.x, point.y);
+        } else {
+          ctx.lineTo(point.x, point.y);
+        }
+      });
+      
+      // Close the track loop
+      if (centeredPoints.length > 0) {
+        ctx.lineTo(centeredPoints[0].x, centeredPoints[0].y);
+      }      
+      ctx.stroke();
+    }
+    
+    function displayNoTrackData() {
+      // Hide canvas, show placeholder
+      canvas.style.display = 'none';
+      const placeholder = document.getElementById('trackPlaceholder');
+      placeholder.style.display = 'flex';
+      
+      placeholder.innerHTML = `
+        <div class="track-icon">🏁</div>
+        <div>Track Map Placeholder</div>
+        <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">
+          ${currentTrack ? `No track data available for ${currentTrack}` : 'Track visualization will appear here'}
+        </div>
+      `;
+    }
+
+    function updateTrackTitle() {
+      const titleElement = document.getElementById("trackTitle");
+      const trackNameElement = document.getElementById("trackName");
+      
+      if (currentTrack) {
+        titleElement.textContent = currentTrack.toUpperCase();
+        trackNameElement.textContent = currentTrack.toUpperCase();
+        document.title = `F1 ${currentTrack} Dashboard`;
+      } else {
+        titleElement.textContent = "DASHBOARD";
+        trackNameElement.textContent = "Circuit Name";
+        document.title = "F1 24 Dashboard";
+      }
+    }
+
+    async function loadDisplayData() {
+      try {
+        const response = await fetch("/api/drivers");
+        const drivers = await response.json();
+
+        allDriverData = drivers;
+        const processedDrivers = processDriverData(drivers);
+
+        updateLeaderboard(processedDrivers);
+        updateFastestLapInfo(processedDrivers);
+      } catch (error) {
+        console.error("Error loading display data:", error);
+      }
+    }
+
+    function processDriverData(drivers) {
+      const processed = {};
+      let overallFastestTimeValue = Infinity;
+      let overallFastestLapKey = null;
+
+      // Find overall fastest lap
+      for (const [name, driver] of Object.entries(drivers)) {
+        if (driver.lap_times.length > 0) {
+          driver.lap_times.forEach((lap, index) => {
+            const timeValue = parseTimeToSeconds(lap.time);
+            if (timeValue < overallFastestTimeValue) {
+              overallFastestTimeValue = timeValue;
+              overallFastestLapKey = `${name}_${index}`;
+            }
+          });
+        }
+      }
+
+      // Process each driver
+      for (const [name, driver] of Object.entries(drivers)) {
+        processed[name] = { ...driver, lap_times: [] };
+
+        if (driver.lap_times.length > 0) {
+          const lapsWithData = driver.lap_times.map((lap, index) => ({
+            ...lap,
+            originalIndex: index,
+            timeValue: parseTimeToSeconds(lap.time)
+          }));
+
+          lapsWithData.sort((a, b) => a.timeValue - b.timeValue);
+          const fastestLapForDriver = lapsWithData[0];
+          const currentLapKey = `${name}_${fastestLapForDriver.originalIndex}`;
+          fastestLapForDriver.is_fastest = (currentLapKey === overallFastestLapKey);
+
+          processed[name].lap_times = [fastestLapForDriver];
+        }
+      }
+      return processed;
+    }
+
+    function updateLeaderboard(drivers) {
+      const container = document.getElementById("leaderboardContent");
+      
+      const allDrivers = Object.entries(drivers).filter(([name, driver]) => 
+        driver.lap_times.length > 0
+      );
+
+      if (allDrivers.length === 0) {
+        container.innerHTML = `
+          <div class="no-data">
+            <div style="font-size: 24px; margin-bottom: 12px;">⏱️</div>
+            <div>No timing data available</div>
+          </div>
+        `;
+        return;
+      }
+
+      // Sort by lap time
+      allDrivers.sort((a, b) => {
+        const timeA = parseTimeToSeconds(a[1].lap_times[0].time);
+        const timeB = parseTimeToSeconds(b[1].lap_times[0].time);
+        return timeA - timeB;
+      });
+
+      let html = "";
+      allDrivers.forEach(([name, driver], index) => {
+        const lap = driver.lap_times[0];
+        const position = index + 1;
+        const teamClass = driver.team.toLowerCase();
+        const isFastest = lap.is_fastest;        html += `
+          <div class="driver-row ${isFastest ? 'fastest' : ''} ${teamClass}">
+            <div class="position">${position}</div>
+            <div class="driver-info">
+              <div class="driver-name">${truncateName(driver.name, 25)}</div>
+              <div class="driver-team">${driver.team}</div>
+            </div>
+            <div class="lap-time ${isFastest ? 'fastest' : ''}">${formatTime(lap.time)}</div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function updateFastestLapInfo(drivers) {
+      const fastestLapInfo = document.getElementById("fastestLapInfo");
+      const fastestLapTime = document.getElementById("fastestLapTime");
+      
+      let fastestTime = null;
+      
+      for (const [name, driver] of Object.entries(drivers)) {
+        if (driver.lap_times.length > 0 && driver.lap_times[0].is_fastest) {
+          fastestTime = driver.lap_times[0].time;
+          break;
+        }
+      }
+      
+      if (fastestTime) {
+        fastestLapInfo.style.display = "block";
+        fastestLapTime.textContent = formatTime(fastestTime);
+      } else {
+        fastestLapInfo.style.display = "none";
+      }
+    }
+
+    function parseTimeToSeconds(timeString) {
+      if (timeString.includes(':')) {
+        const parts = timeString.split(/[:.]/);
+        if (parts.length === 3) {
+          return parseInt(parts[0]) * 60 + parseInt(parts[1]) + parseFloat(`0.${parts[2]}`);
+        } else if (parts.length === 2) {
+          return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        }
+      } else if (timeString.includes('.')) {
+        const parts = timeString.split('.');
+        if (parts.length === 3) {
+          return parseInt(parts[0]) * 60 + parseInt(parts[1]) + parseFloat(`0.${parts[2]}`);
+        } else if (parts.length === 2) {
+          return parseFloat(timeString);
+        }
+      }
+      const parsed = parseFloat(timeString);
+      return isNaN(parsed) ? Infinity : parsed;
+    }
+
+    function truncateName(name, maxLength) {
+      if (!name) return "";
+      if (name.length <= maxLength) {
+        return name;
+      }
+      let truncated = name.substring(0, maxLength);
+      let lastSpace = truncated.lastIndexOf(' ');
+      if (lastSpace > maxLength / 2) {
+        return truncated.substring(0, lastSpace) + '...';
+      }
+      return truncated + '...';
+    }
+
+    function formatTime(timeInput) {
+      let totalSeconds;
+
+      if (typeof timeInput === 'string') {
+        if (timeInput.includes(':')) {
+          const parts = timeInput.split(/[:.]/);
+          if (parts.length === 3) {
+            totalSeconds = parseInt(parts[0]) * 60 + parseInt(parts[1]) + parseFloat(`0.${parts[2]}`);
+          } else if (parts.length === 2) {
+            totalSeconds = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+          } else {
+            totalSeconds = parseFloat(timeInput);
+          }
+        } else if (timeInput.includes('.')) {
+          const parts = timeInput.split('.');
+          if (parts.length === 3) {
+            totalSeconds = parseInt(parts[0]) * 60 + parseInt(parts[1]) + parseFloat(`0.${parts[2]}`);
+          } else {
+            totalSeconds = parseFloat(timeInput);
+          }
+        } else {
+          totalSeconds = parseFloat(timeInput);
+        }
+      } else if (typeof timeInput === 'number') {
+        totalSeconds = timeInput;
+      } else {
+        return "N/A";
+      }
+
+      if (isNaN(totalSeconds) || totalSeconds === Infinity) {
+        return "N/A";
+      }
+
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      const formattedSeconds = seconds < 10 ? `0${seconds.toFixed(3)}` : seconds.toFixed(3);
+
+      return `${minutes}:${formattedSeconds}`;
+    }
+
+    function updateDriverPositions(drivers, trackName) {
+      console.log("Driver position update received", drivers);
+      
+      if (!canvas || !ctx) {
+        console.warn("Canvas not initialized");
+        return;
+      }
+      
+      let driversArray = [];
+      
+      if (Array.isArray(drivers)) {
+        driversArray = drivers;
+      } else if (typeof drivers === 'object' && drivers !== null) {
+        driversArray = Object.values(drivers);
+      }
+      
+      if (!driversArray || driversArray.length === 0) {
+        console.warn("No valid driver data received");
+        return;
+      }
+      
+      if (canvas && canvas.style.display === 'none') {
+        canvas.style.display = 'block';
+        document.getElementById('trackPlaceholder').style.display = 'none';
+        console.log("Made track canvas visible");
+      }
+      
+      // If track name is provided and different from current, update it
+      if (trackName && trackName !== currentTrack && TRACK_DICTIONARY[trackName.toLowerCase()]) {
+        currentTrack = trackName;
+        updateTrackTitle();
+        loadTrackData();
+      }
+      
+      // Get track parameters for coordinate transformation
+      const trackParams = TRACK_DICTIONARY[currentTrack.toLowerCase()];
+      if (!trackParams) {
+        console.warn(`No track parameters for ${currentTrack}`);
+        return;
+      }
+      
+      // Log the track parameters for debugging
+      console.log(`Using track parameters for ${currentTrack}:`, trackParams);
+      
+      // Process each driver
+      driversArray.forEach(driver => {
+        // For API response format, use the driver name as the ID
+        // This matches the approach in the reference implementation where each driver has a unique name
+        const driverId = driver.name ? driver.name.replace(/\s+/g, '_') : 'unknown';
+        
+        // Log the driver data with the ID we're using
+        console.log(`Processing driver with ID: ${driverId}, data:`, driver);
+        const driverName = driver.name;
+        const teamId = driver.team_id || driver.team;
+        const worldX = driver.world_position_x;
+        const worldZ = driver.world_position_z;
+        
+        // Log the driver data for debugging
+        console.log(`Processing driver: ${driverName}, ID: ${driverId}, Position: (${worldX}, ${worldZ})`);
+        
+        // Skip if driver has no position data
+        if (worldX === undefined || worldZ === undefined) {
+          console.warn(`Driver ${driverName} has no position data`);
+          return;
+        }
+        
+        // Force numeric conversion for position data
+        const numWorldX = Number(worldX);
+        const numWorldZ = Number(worldZ);
+        
+        if (isNaN(numWorldX) || isNaN(numWorldZ)) {
+          console.warn(`Driver ${driverName} has invalid position data: X=${worldX}, Z=${worldZ}`);
+          return;
+        }
+        
+        // Skip if no position data
+        if (numWorldX === 0 && numWorldZ === 0) return;
+        
+        // Transform world coordinates to canvas coordinates using the same algorithm as the track
+        const { d, x_offset, z_offset } = trackParams;
+        
+        // Calculate raw transformed coordinates using the numeric values
+        // This is the exact same algorithm used in the reference implementation
+        let transformedX = (numWorldZ / d) + x_offset;
+        let transformedY = (numWorldX / d) + z_offset;
+        
+        console.log(`Transformed coordinates for ${driverName}: (${transformedX}, ${transformedY})`);
+        
+        
+        // Apply the same scaling and centering as the track
+
+        // Apply the same scaling and centering as the track
+        if (trackData && trackData.points && trackData.points.length > 0) {
+          // Get track bounds from the track drawing function
+          const transformedPoints = trackData.points.map(point => ({
+            x: (point.pos_z / d) + x_offset,
+            y: (point.pos_x / d) + z_offset
+          }));
+          
+          // This is the exact same algorithm used in the reference implementation
+          // First, get the track dimensions from the canvas
+          const canvasRect = canvas.getBoundingClientRect();
+          
+          // Calculate the scaling factors based on the canvas size
+          const canvasWidth = canvasRect.width;
+          const canvasHeight = canvasRect.height;
+          
+          // Get the track bounds from the previously drawn track
+          const minX = Math.min(...transformedPoints.map(p => p.x));
+          const maxX = Math.max(...transformedPoints.map(p => p.x));
+          const minY = Math.min(...transformedPoints.map(p => p.y));
+          const maxY = Math.max(...transformedPoints.map(p => p.y));
+          
+          const trackWidth = maxX - minX;
+          const trackHeight = maxY - minY;
+          
+          // Calculate scaling to fit track in canvas with padding
+          const padding = 40;
+          const availableWidth = canvasWidth - (2 * padding);
+          const availableHeight = canvasHeight - (2 * padding);
+          const scale = Math.min(availableWidth / trackWidth, availableHeight / trackHeight);
+          
+          // Calculate centering offsets
+          const centerOffsetX = (canvasWidth - (trackWidth * scale)) / 2;
+          const centerOffsetY = (canvasHeight - (trackHeight * scale)) / 2;
+          
+          // Final scaled and centered coordinates
+          const finalX = ((transformedX - minX) * scale) + centerOffsetX;
+          const finalY = ((transformedY - minY) * scale) + centerOffsetY;
+          
+          console.log(`Final coordinates for ${driverName}: (${finalX}, ${finalY})`);
+          
+          // Use these final coordinates for positioning the driver marker
+          transformedX = finalX;
+          transformedY = finalY;
+        }
+        
+        // Get team color - use the color from the telemetry data if available, otherwise fallback to team colors
+        const teamColor = driver.color || TEAM_COLORS[teamId] || '#FFFFFF';
+        
+        // Create or update driver marker - following the reference implementation approach
+        if (!driverMarkers[driverId]) {
+          console.log(`Creating new marker for driver ${driverId} at position (${transformedX}, ${transformedY})`);
+          
+          // Create new marker elements - similar to how the reference implementation creates oval elements
+          const driverGroup = document.createElement('div');
+          driverGroup.className = 'driver-marker';
+          driverGroup.style.position = 'absolute';
+          driverGroup.style.left = `${transformedX}px`;
+          driverGroup.style.top = `${transformedY}px`;
+          driverGroup.style.transform = 'translate(-50%, -50%)';
+          driverGroup.style.zIndex = '10';
+          
+          // Create driver oval
+          const oval = document.createElement('div');
+          oval.style.width = '12px';
+          oval.style.height = '12px';
+          oval.style.borderRadius = '50%';
+          oval.style.backgroundColor = teamColor;
+          oval.style.border = '1px solid white';
+          
+          // Create driver label
+          const label = document.createElement('div');
+          label.style.position = 'absolute';
+          label.style.top = '12px';
+          label.style.left = '50%';
+          label.style.transform = 'translateX(-50%)';
+          label.style.color = 'white';
+          label.style.fontSize = '10px';
+          label.style.fontWeight = 'bold';
+          label.style.textShadow = '0 0 2px black';
+          label.textContent = driverName.substring(0, 3).toUpperCase();
+          
+          // Add elements to the DOM
+          driverGroup.appendChild(oval);
+          driverGroup.appendChild(label);
+          
+          // Find the track-map element - it should be a direct child of track-container
+          const trackMapElement = document.querySelector('.track-map');
+          if (trackMapElement) {
+            trackMapElement.appendChild(driverGroup);
+            console.log(`Added driver marker ${driverId} to track map`);
+          } else {
+            console.error('Could not find track-map element, trying to create it');
+            // Try to find the track-container and create the track-map element if needed
+            const trackContainer = document.querySelector('.track-container');
+            if (trackContainer) {
+              const newTrackMap = document.createElement('div');
+              newTrackMap.className = 'track-map';
+              trackContainer.appendChild(newTrackMap);
+              newTrackMap.appendChild(driverGroup);
+              console.log(`Created new track-map element and added driver marker ${driverId}`);
+            } else {
+              console.error('Could not find track-container element either');
+            }
+          }
+          
+          // Store references
+          driverMarkers[driverId] = {
+            group: driverGroup,
+            oval: oval,
+            label: label
+          };
+          
+          // Initialize position tracking for smooth updates
+          currentDriverPositions[driverId] = {
+            x: transformedX,
+            y: transformedY
+          };
+          
+          // Store driver info
+          currentDriverInfo[driverId] = {
+            name: driverName,
+            teamId: teamId
+          };
+        } else {
+          // Update existing marker with smooth transition
+          const marker = driverMarkers[driverId];
+          
+          // Apply smooth transition using CSS
+          marker.group.style.transition = 'left 0.1s linear, top 0.1s linear';
+          marker.group.style.left = `${transformedX}px`;
+          marker.group.style.top = `${transformedY}px`;
+          
+          // Update team color if changed
+          if (currentDriverInfo[driverId].teamId !== teamId) {
+            marker.oval.style.backgroundColor = teamColor;
+            currentDriverInfo[driverId].teamId = teamId;
+          }
+          
+          // Update name if changed
+          if (currentDriverInfo[driverId].name !== driverName) {
+            marker.label.textContent = driverName.substring(0, 3).toUpperCase();
+            currentDriverInfo[driverId].name = driverName;
+          }
+          
+          // Update position tracking
+          currentDriverPositions[driverId] = {
+            x: transformedX,
+            y: transformedY
+          };
+        }
+      });
+      
+      // Remove markers for drivers no longer in the data
+      // Get the IDs of all active drivers using the same ID generation logic as above
+      const activeDriverIds = driversArray.map(d => d.name ? d.name.replace(/\s+/g, '_') : 'unknown');
+      
+      // Clean up markers for drivers no longer in the data
+      Object.keys(driverMarkers).forEach(id => {
+        if (!activeDriverIds.includes(id)) {
+          console.log(`Removing marker for driver ${id} as they are no longer active`);
+          // Remove from DOM
+          if (driverMarkers[id].group && driverMarkers[id].group.parentNode) {
+            driverMarkers[id].group.parentNode.removeChild(driverMarkers[id].group);
+          }
+          // Clean up references
+          delete driverMarkers[id];
+          delete currentDriverPositions[id];
+          delete currentDriverInfo[id];
+        }
+      });
+      
+      // Debug info
+      console.log(`Updated ${activeDriverIds.length} driver positions on track ${currentTrack}`);
+      
+      // Show the canvas if it was hidden
+      canvas.style.display = 'block';
+      const placeholder = document.getElementById('trackPlaceholder');
+      if (placeholder) {
+        placeholder.style.display = 'none';
+      }
+    }
+    
+    function getCurrentDriverInfo(driverId) {
+      // Return stored driver info from latest telemetry
+      return currentDriverInfo[driverId] || {
+        driver_id: driverId,
+        name: `Driver ${driverId}`,
+        team_id: Math.floor(driverId / 2) + 1 // Fallback team assignment
+      };
+    }
+  </script>
+</body>
+</html>

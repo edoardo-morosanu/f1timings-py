@@ -278,20 +278,52 @@
             </table>
           </div>
         </div>
-      </div>
-
-      <div class="admin-section export-section">
+      </div>      <div class="admin-section export-section">
         <h2>Export Data</h2>
         <p>Export all lap times for the current track as a CSV file.</p>
         <button id="exportBtn">Export Lap Times</button>
         <div id="exportStatus" class="status-message"></div>
+      </div>      <div class="admin-section">
+        <h2>Live Telemetry Demo</h2>
+        <p>Start or stop the live driver tracking demo on the dashboard.</p>
+        <div class="button-group">
+          <button id="startTelemetryBtn">Start Demo</button>
+          <button id="stopTelemetryBtn" class="secondary">Stop Demo</button>
+          <button id="telemetryStatusBtn" class="secondary">Check Status</button>
+        </div>
+        <div id="telemetryStatus" class="status-message"></div>
+      </div>
+
+      <div class="admin-section">
+        <h2>Real F1 2024 Telemetry (UDP)</h2>
+        <p>Connect to F1 2024 game for real telemetry data via UDP.</p>
+        <div class="input-group">
+          <label for="udpPort">UDP Port:</label>
+          <input type="number" id="udpPort" value="20777" min="1024" max="65535" />
+        </div>
+        <div class="button-group">
+          <button id="startUDPBtn">Start UDP Listener</button>
+          <button id="stopUDPBtn" class="secondary">Stop UDP Listener</button>
+        </div>
+        <div id="udpStatus" class="status-message"></div>
+        <div class="telemetry-instructions" style="margin-top: 15px; padding: 10px; background-color: #374151; border-radius: 4px;">
+          <h4 style="margin-top: 0;">F1 2024 Setup Instructions:</h4>
+          <ol style="margin-bottom: 0; padding-left: 20px;">
+            <li>Go to F1 2024 Settings → Telemetry</li>
+            <li>Enable "UDP Telemetry Output"</li>
+            <li>Set IP Address: <code>127.0.0.1</code></li>
+            <li>Set Port: <code>20777</code> (or custom port above)</li>
+            <li>Set Send Rate: <code>20Hz or higher</code></li>
+            <li>Click "Start UDP Listener" above</li>
+          </ol>
+        </div>
       </div>
     </div>
 
     <script>
       let allLapTimes = [];
       let currentTrack = "";
-      let socket = null;      document.addEventListener("DOMContentLoaded", () => {
+      let socket = null;      document.addEventListener("DOMContentLoaded", async () => {
         document
           .getElementById("setTrackBtn")
           .addEventListener("click", setTrackName);
@@ -306,10 +338,23 @@
           .addEventListener("click", exportLapTimes);
         document
           .getElementById("driverSelect")
-          .addEventListener("change", updateTeamDisplayFromSelection);
-        document
+          .addEventListener("change", updateTeamDisplayFromSelection);        document
           .getElementById("logoutBtn")
           .addEventListener("click", handleLogout);
+        document
+          .getElementById("startTelemetryBtn")
+          .addEventListener("click", startTelemetryDemo);
+        document
+          .getElementById("stopTelemetryBtn")
+          .addEventListener("click", stopTelemetryDemo);        document
+          .getElementById("telemetryStatusBtn")
+          .addEventListener("click", checkTelemetryStatus);
+        document
+          .getElementById("startUDPBtn")
+          .addEventListener("click", startUDPTelemetry);
+        document
+          .getElementById("stopUDPBtn")
+          .addEventListener("click", stopUDPTelemetry);
 
         // Initialize WebSocket connection
         connectWebSocket();
@@ -856,69 +901,156 @@
         }
       }
 
-      function showStatus(element, message, isSuccess) {
-        element.textContent = message;
-        element.className =
-          "status-message " + (isSuccess ? "status-success" : "status-error");
+      // Telemetry Demo Controls
+      async function startTelemetryDemo() {
+        const statusElement = document.getElementById("telemetryStatus");
+        statusElement.innerHTML = "Starting telemetry demo...";
+        statusElement.className = "status-message";
 
-        setTimeout(() => {
-          if (element.textContent === message) {
-            element.textContent = "";
-            element.className = "status-message";
+        try {
+          const response = await fetch("/api/telemetry/demo/start", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            showStatus(statusElement, `Telemetry demo started: ${data.message}`, true);
+          } else {
+            const errorData = await response.json().catch(() => ({ detail: "Failed to start telemetry demo" }));
+            showStatus(statusElement, `Error: ${errorData.detail}`, false);
           }
-        }, 5000);
+        } catch (error) {
+          console.error("Error starting telemetry demo:", error);
+          showStatus(statusElement, "Network error starting telemetry demo", false);
+        }
       }
 
-      function formatTime(timeInput) {
-        let totalSeconds;
+      async function stopTelemetryDemo() {
+        const statusElement = document.getElementById("telemetryStatus");
+        statusElement.innerHTML = "Stopping telemetry demo...";
+        statusElement.className = "status-message";
 
-        if (typeof timeInput === "string") {
-          if (timeInput.includes(":")) {
-            const parts = timeInput.split(/[:.]/);
-            if (parts.length === 3) {
-              totalSeconds =
-                parseInt(parts[0]) * 60 +
-                parseInt(parts[1]) +
-                parseFloat(`0.${parts[2]}`);
-            } else if (parts.length === 2) {
-              totalSeconds =
-                parseInt(parts[0]) * 60 + parseInt(parts[1]);
-            } else {
-              totalSeconds = parseFloat(timeInput);
+        try {
+          const response = await fetch("/api/telemetry/demo/stop", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
             }
-          } else if (timeInput.includes(".")) {
-            const parts = timeInput.split(".");
-            if (parts.length === 3) {
-              totalSeconds =
-                parseInt(parts[0]) * 60 +
-                parseInt(parts[1]) +
-                parseFloat(`0.${parts[2]}`);
-            } else {
-              totalSeconds = parseFloat(timeInput);
-            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            showStatus(statusElement, `Telemetry demo stopped: ${data.message}`, true);
           } else {
-            totalSeconds = parseFloat(timeInput);
+            const errorData = await response.json().catch(() => ({ detail: "Failed to stop telemetry demo" }));
+            showStatus(statusElement, `Error: ${errorData.detail}`, false);
           }
-        } else if (typeof timeInput === "number") {
-          totalSeconds = timeInput;
-        } else {
-          return "N/A";
+        } catch (error) {
+          console.error("Error stopping telemetry demo:", error);
+          showStatus(statusElement, "Network error stopping telemetry demo", false);
         }
+      }
 
-        if (
-          isNaN(totalSeconds) ||
-          totalSeconds === Infinity ||
-          totalSeconds < 0
-        ) {
-          return "N/A";
+      async function checkTelemetryStatus() {
+        const statusElement = document.getElementById("udpStatus");
+
+        try {
+          const response = await fetch("/api/telemetry/status");
+
+          if (response.ok) {
+            const data = await response.json();
+            const statusMessage = data.running 
+              ? `UDP telemetry running on port ${data.port} - ${data.active_drivers} drivers tracked` 
+              : "UDP telemetry not running";
+            showStatus(statusElement, statusMessage, data.running);
+            
+            // Update button states
+            document.getElementById("startUDPBtn").disabled = data.running;
+            document.getElementById("stopUDPBtn").disabled = !data.running;
+          } else {
+            showStatus(statusElement, "Failed to get telemetry status", false);
+          }
+        } catch (error) {
+          console.error("Error checking telemetry status:", error);
+          showStatus(statusElement, "Network error checking telemetry status", false);
         }
+      }
 
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const formattedSeconds =
-          seconds < 10 ? `0${seconds.toFixed(3)}` : seconds.toFixed(3);
+      // UDP Telemetry Functions
+      async function startUDPTelemetry() {
+        const statusElement = document.getElementById("udpStatus");
+        const portInput = document.getElementById("udpPort");
+        const port = parseInt(portInput.value) || 20777;
 
-        return `${minutes}:${formattedSeconds}`;
+        statusElement.innerHTML = "Starting UDP telemetry listener...";
+        statusElement.className = "status-message";
+
+        try {
+          const response = await fetch(`/api/telemetry/start?port=${port}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const instructions = data.instructions?.f1_2024_config;
+            let message = `UDP telemetry started on port ${port}`;
+            if (instructions) {
+              message += `\n\nF1 2024 Setup:\n• ${instructions.telemetry_settings}\n• ${instructions.enable_udp}\n• IP: ${instructions.ip_address}\n• Port: ${instructions.port}\n• Rate: ${instructions.send_rate}`;
+            }
+            showStatus(statusElement, message, true);
+          } else {
+            const errorData = await response.json().catch(() => ({ detail: "Failed to start UDP telemetry" }));
+            showStatus(statusElement, `Error: ${errorData.detail}`, false);
+          }
+        } catch (error) {
+          console.error("Error starting UDP telemetry:", error);
+          showStatus(statusElement, "Network error starting UDP telemetry", false);
+        }
+      }
+
+      async function stopUDPTelemetry() {
+        const statusElement = document.getElementById("udpStatus");
+        statusElement.innerHTML = "Stopping UDP telemetry...";
+        statusElement.className = "status-message";
+
+        try {
+          const response = await fetch("/api/telemetry/stop", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            showStatus(statusElement, `UDP telemetry stopped: ${data.message}`, true);
+          } else {
+            const errorData = await response.json().catch(() => ({ detail: "Failed to stop UDP telemetry" }));
+            showStatus(statusElement, `Error: ${errorData.detail}`, false);
+          }        } catch (error) {
+          console.error("Error stopping UDP telemetry:", error);
+          showStatus(statusElement, "Network error stopping UDP telemetry", false);
+        }
+      }
+
+      // Helper function to show status messages
+      function showStatus(element, message, isSuccess) {
+        element.textContent = message;
+        element.className = 'status-message ' + (isSuccess ? 'status-success' : 'status-error');
+        // Clear message after a delay
+        setTimeout(() => {
+          // Only clear if the message hasn't changed in the meantime
+          if (element.textContent === message) {
+            element.textContent = '';
+            element.className = 'status-message';
+          }
+        }, 5000); // 5 second delay
       }
     </script>
   </body>

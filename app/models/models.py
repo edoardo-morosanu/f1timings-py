@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 # --- Internal Data Structures ---
 
+
 class LapTime(BaseModel):
     time: str  # Store as original string e.g., "1:23.456" or "83.456"
     is_fastest: bool = False
@@ -117,14 +118,32 @@ class TrackNameInput(BaseModel):
 # --- API Response Models ---
 
 
-class TrackNameResponse(BaseModel):
-    name: str
+class TrackPoint(BaseModel):
+    """Represents a single point on the racing line."""
+
+    dist: float = Field(..., description="Distance along track")
+    pos_x: float = Field(..., description="X coordinate")
+    pos_y: float = Field(..., description="Y coordinate")
+    pos_z: float = Field(..., description="Z coordinate")
+    drs: int = Field(..., description="DRS zone indicator")
+    sector: int = Field(..., description="Sector number")
 
 
-class ExportResponse(BaseModel):
-    success: bool
-    filename: str = ""
-    message: str
+class TrackData(BaseModel):
+    """Represents complete track data including metadata and points."""
+
+    name: str = Field(..., description="Track name")
+    track_info: str = Field(..., description="Track metadata from file header")
+    points: List[TrackPoint] = Field(..., description="Racing line points")
+
+
+class TrackDataResponse(BaseModel):
+    """Response model for track data API endpoint."""
+
+    success: bool = Field(default=True)
+    track_name: str = Field(..., description="Name of the track")
+    data: Optional[TrackData] = Field(None, description="Track data if found")
+    message: str = Field(default="", description="Status message")
 
 
 class DriverResponse(BaseModel):
@@ -141,25 +160,45 @@ class DriverResponse(BaseModel):
         default_factory=list
     )  # List for frontend compatibility
 
+
 class User(BaseModel):
     """Represents a user/driver with their assigned team."""
+
     name: str = Field(..., description="Driver's name", min_length=1)
     team: str = Field(..., description="Driver's team", min_length=1)
 
-    @field_validator('name', 'team')
+    @field_validator("name", "team")
     def name_must_not_be_empty(cls, value):
         if not value.strip():
             raise ValueError("Name and team cannot be empty or just whitespace")
         return value.strip()
 
+
 class UserResponse(BaseModel):
     """Response model for a single user."""
+
     name: str
     team: str
 
+
 class UserListResponse(BaseModel):
     """Response model for a list of users."""
+
     users: Dict[str, UserResponse]
+
+
+class TrackNameResponse(BaseModel):
+    """Response model for track name API endpoint."""
+
+    name: str = Field(..., description="Name of the current track")
+
+
+class ExportResponse(BaseModel):
+    """Response model for data export operations."""
+
+    success: bool = Field(default=True, description="Whether the export was successful")
+    message: str = Field(default="", description="Status or error message")
+    data: Optional[Dict] = Field(None, description="Exported data if successful")
 
 
 # Helper to convert internal Driver state to API response format
