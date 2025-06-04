@@ -11,10 +11,10 @@ from app.models.models import (
     TrackNameInput,
     TrackNameResponse,
     TrackData,
-    driver_to_response,
+    # driver_to_response, # No longer needed here, telemetry helper returns DriverResponse
 )
 from app.services.crud import (
-    get_all_drivers,
+    # get_all_drivers, # No longer used by this endpoint
     add_or_update_lap_time,
     delete_driver_lap_time,
     get_track,
@@ -25,6 +25,7 @@ from app.services.crud import (
 from app.utils.helpers import generate_csv_content, update_overall_fastest_lap
 from app.services.track_service import track_service
 from app.dependencies.auth import require_auth
+from app.api.telemetry import get_live_driver_data_for_api # Import new helper
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -34,13 +35,10 @@ router = APIRouter()
 
 
 @router.get("/api/drivers", response_model=Dict[str, DriverResponse], tags=["Drivers"])
-async def get_drivers_endpoint(current_user=Depends(require_auth)):
-    """Gets all current drivers and their fastest lap times."""
-    drivers_internal = await get_all_drivers()
-    # Convert internal Driver model to the DriverResponse model for the API
-    drivers_response = {
-        name: driver_to_response(driver) for name, driver in drivers_internal.items()
-    }
+async def get_drivers_endpoint():
+    """Gets all current drivers and their live telemetry data (name, team, last lap time)."""
+    # Fetch live driver data compiled from telemetry stores
+    drivers_response = await get_live_driver_data_for_api()
     return drivers_response
 
 

@@ -135,11 +135,13 @@ async def general_exception_handler(request: Request, exc: Exception):
 from app.api.users import router as users_router
 from app.api.drivers import router as drivers_router
 from app.api.auth import router as auth_router
+from app.api.telemetry import telemetry_router
 
 # --- Include Routers ---
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(drivers_router)
+app.include_router(telemetry_router, prefix="/api/telemetry", tags=["Telemetry"])
 
 # You can still add additional routes here if necessary
 

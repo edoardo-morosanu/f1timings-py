@@ -963,7 +963,7 @@
           if (response.ok) {
             const data = await response.json();
             const statusMessage = data.running 
-              ? `UDP telemetry running on port ${data.port} - ${data.active_drivers} drivers tracked` 
+              ? `UDP telemetry running on host ${data.host}, port ${data.port} - ${data.active_drivers} drivers tracked` 
               : "UDP telemetry not running";
             showStatus(statusElement, statusMessage, data.running);
             
@@ -998,12 +998,8 @@
 
           if (response.ok) {
             const data = await response.json();
-            const instructions = data.instructions?.f1_2024_config;
-            let message = `UDP telemetry started on port ${port}`;
-            if (instructions) {
-              message += `\n\nF1 2024 Setup:\n• ${instructions.telemetry_settings}\n• ${instructions.enable_udp}\n• IP: ${instructions.ip_address}\n• Port: ${instructions.port}\n• Rate: ${instructions.send_rate}`;
-            }
-            showStatus(statusElement, message, true);
+            // Use the message directly from the API response, which now just confirms startup and port
+            showStatus(statusElement, data.message, true);
           } else {
             const errorData = await response.json().catch(() => ({ detail: "Failed to start UDP telemetry" }));
             showStatus(statusElement, `Error: ${errorData.detail}`, false);

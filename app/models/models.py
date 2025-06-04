@@ -159,6 +159,9 @@ class DriverResponse(BaseModel):
     lap_times: List[LapTime] = Field(
         default_factory=list
     )  # List for frontend compatibility
+    world_x: Optional[float] = Field(None, description="World X coordinate of the car")
+    world_y: Optional[float] = Field(None, description="World Y coordinate of the car")
+    world_z: Optional[float] = Field(None, description="World Z coordinate of the car")
 
 
 class User(BaseModel):

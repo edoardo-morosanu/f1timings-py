@@ -133,48 +133,73 @@
 <script>
   // Track dictionary with scaling parameters (matching reference implementation)
   const TRACK_DICTIONARY = {
-    'melbourne': { d: 3.5, x_offset: 300, z_offset: 300 },
-    'paul_ricard': { d: 2.5, x_offset: 500, z_offset: 300 },
-    'shanghai': { d: 2, x_offset: 300, z_offset: 300 },
-    'sakhir': { d: 2, x_offset: 600, z_offset: 350 },
-    'catalunya': { d: 2.5, x_offset: 400, z_offset: 300 },
-    'monaco': { d: 2, x_offset: 300, z_offset: 300 },
-    'montreal': { d: 3, x_offset: 300, z_offset: 100 },
-    'silverstone': { d: 3.5, x_offset: 400, z_offset: 250 },
-    'hockenheim': { d: 2, x_offset: 300, z_offset: 300 },
-    'hungaroring': { d: 2.5, x_offset: 400, z_offset: 300 },
-    'spa': { d: 3.5, x_offset: 500, z_offset: 350 },
-    'monza': { d: 4, x_offset: 400, z_offset: 300 },
-    'singapore': { d: 2, x_offset: 400, z_offset: 300 },
-    'suzuka': { d: 2.5, x_offset: 500, z_offset: 300 },
-    'abu_dhabi': { d: 2, x_offset: 500, z_offset: 250 },
-    'texas': { d: 2, x_offset: 400, z_offset: 50 },
-    'brazil': { d: 2, x_offset: 600, z_offset: 250 },
-    'austria': { d: 2, x_offset: 300, z_offset: 300 },
-    'sochi': { d: 2, x_offset: 300, z_offset: 300 },
-    'mexico': { d: 2.5, x_offset: 500, z_offset: 500 },
-    'baku': { d: 3, x_offset: 400, z_offset: 400 },
-    'sakhir_short': { d: 2, x_offset: 300, z_offset: 300 },
-    'silverstone_short': { d: 2, x_offset: 300, z_offset: 300 },
-    'texas_short': { d: 2, x_offset: 300, z_offset: 300 },
-    'suzuka_short': { d: 2, x_offset: 300, z_offset: 300 },
-    'hanoi': { d: 2, x_offset: 300, z_offset: 300 },
-    'zandvoort': { d: 2, x_offset: 500, z_offset: 300 },
-    'imola': { d: 2, x_offset: 500, z_offset: 300 },
-    'portimao': { d: 2, x_offset: 300, z_offset: 300 },
-    'jeddah': { d: 4, x_offset: 500, z_offset: 350 },
-    'miami': { d: 2, x_offset: 400, z_offset: 300 },
-    'las_vegas': { d: 4, x_offset: 400, z_offset: 300 },
-    'losail': { d: 2.5, x_offset: 400, z_offset: 300 }
+    'abu_dhabi': { d: 2, x_offset: 800, z_offset: 400 },
+    'austria': { d: 2, x_offset: 800, z_offset: 400 },
+    'bahrain': { d: 2, x_offset: 800, z_offset: 400 },
+    'baku': { d: 3, x_offset: 800, z_offset: 400 },
+    'brazil': { d: 2, x_offset: 800, z_offset: 300 },
+    'catalunya': { d: 2.5, x_offset: 800, z_offset: 400 },
+    'hanoi': { d: 2.5, x_offset: 800, z_offset: 400 },
+    'hockenheim': { d: 2, x_offset: 800, z_offset: 400 },
+    'hungaroring': { d: 2.5, x_offset: 800, z_offset: 400 },
+    'imola': { d: 2, x_offset: 800, z_offset: 400 },
+    'jeddah': { d: 4, x_offset: 800, z_offset: 400 },
+    'las_vegas': { d: 4, x_offset: 800, z_offset: 400 },
+    'losail': { d: 2.5, x_offset: 800, z_offset: 400 },
+    'melbourne': { d: 3.5, x_offset: 800, z_offset: 400 },
+    'mexico': { d: 2.5, x_offset: 800, z_offset: 600 },
+    'miami': { d: 2, x_offset: 800, z_offset: 400 },
+    'monaco': { d: 2, x_offset: 800, z_offset: 400 },
+    'montreal': { d: 3, x_offset: 800, z_offset: 200 },
+    'monza': { d: 4, x_offset: 800, z_offset: 400 },
+    'paul_ricard': { d: 2.5, x_offset: 800, z_offset: 400 },
+    'portimao': { d: 2, x_offset: 800, z_offset: 400 },
+    'sakhir': { d: 2, x_offset: 800, z_offset: 400 },
+    'shanghai': { d: 2, x_offset: 800, z_offset: 400 },
+    'silverstone': { d: 3.5, x_offset: 800, z_offset: 400 },
+    'silverstone_short': { d: 2, x_offset: 800, z_offset: 400 },
+    'singapore': { d: 2, x_offset: 800, z_offset: 400 },
+    'sochi': { d: 2, x_offset: 800, z_offset: 400 },
+    'spa': { d: 3.5, x_offset: 800, z_offset: 400 },
+    'suzuka': { d: 2.5, x_offset: 800, z_offset: 400 },
+    'suzuka_short': { d: 2, x_offset: 800, z_offset: 400 },
+    'texas': { d: 2, x_offset: 800, z_offset: 200 },
+    'texas_short': { d: 2, x_offset: 800, z_offset: 400 },
+    'zandvoort': { d: 2, x_offset: 800, z_offset: 400 }
   };
-  // Width constant for line drawing (increased for bigger display)
-  const WIDTH_POINTS = 12;
+  // Base constants for sizes (before zoom)
+  const BASE_WIDTH_POINTS = 12;
+  const BASE_DRIVER_DOT_RADIUS = 5;
+  const BASE_CHECKER_SIZE = BASE_WIDTH_POINTS; // Keep checker size relative to line width
+
+  let globalZoomFactor = 1; // Initial zoom factor, 1.0 is normal size
 
   // Canvas and context
   let canvas = null;
   let ctx = null;
   let currentTrack = '';
   let availableTracks = [];
+  let currentTrackLayoutData = null; // To store the current track's layout points etc.
+  let liveDriversData = {}; // To store data from /api/drivers
+
+  const TEAM_COLORS = {
+    'Mercedes-AMG Petronas F1 Team': '#00D2BE',
+    'Oracle Red Bull Racing': '#0600EF',
+    'Scuderia Ferrari': '#DC0000',
+    'McLaren F1 Team': '#FF8700',
+    'BWT Alpine F1 Team': '#0090FF',
+    'Aston Martin Aramco F1 Team': '#006F62',
+    'Scuderia AlphaTauri': '#2B4562', // Or Visa Cash App RB F1 Team
+    'Visa Cash App RB F1 Team': '#2B4562',
+    'MoneyGram Haas F1 Team': '#FFFFFF',
+    'Williams Racing': '#005AFF',
+    'Alfa Romeo F1 Team Stake': '#900000', // Or Stake F1 Team Kick Sauber
+    'Stake F1 Team Kick Sauber': '#52E252', // Kick Green
+    // Add more official names and colors as needed
+    'DEFAULT': '#FF00FF' // Default color if team not found (Magenta)
+  };
+  let fetchDataInterval = null;
+  const FETCH_INTERVAL_MS = 250; // Fetch data every 0.25 seconds (4Hz)
 
   document.addEventListener("DOMContentLoaded", () => {
     canvas = document.getElementById('trackCanvas');
@@ -189,7 +214,82 @@
     
     // Try to load current track if set
     loadCurrentTrack();
+
+    // Start fetching live driver data
+    if (fetchDataInterval) clearInterval(fetchDataInterval);
+    fetchDataInterval = setInterval(fetchLiveDrivers, FETCH_INTERVAL_MS);
+    fetchLiveDrivers(); // Initial fetch
   });
+
+  async function fetchLiveDrivers() {
+    if (!currentTrack) return; // Don't fetch if no track is selected
+
+    try {
+      const response = await fetch('/api/drivers');
+      if (!response.ok) {
+        console.error(`Error fetching live driver data: ${response.status} ${response.statusText}`);
+        // Optionally, display a more user-friendly error on the page
+        return;
+      }
+      liveDriversData = await response.json();
+      // console.log('Live drivers data:', liveDriversData); // For debugging
+      redrawAll(); // Redraw track and drivers
+    } catch (error) {
+      console.error('Failed to fetch live drivers data:', error);
+    }
+  }
+
+  function redrawAll() {
+    if (!ctx || !currentTrack) return;
+
+    clearCanvas(); // Clear canvas first
+
+    // Redraw the track if its data and parameters are available
+    const trackParams = TRACK_DICTIONARY[currentTrack.toLowerCase()];
+    if (currentTrackLayoutData && trackParams) {
+      drawTrack(currentTrackLayoutData, trackParams);
+    }
+
+    // Draw the drivers on top
+    drawDriversOnTrack();
+  }
+
+  function drawDriversOnTrack() {
+    if (!ctx || !currentTrack || Object.keys(liveDriversData).length === 0) return;
+
+    const trackParams = TRACK_DICTIONARY[currentTrack.toLowerCase()];
+    const effectiveDriverDotRadius = BASE_DRIVER_DOT_RADIUS * globalZoomFactor;
+
+    if (!trackParams) {
+      // console.warn(`No track parameters found for ${currentTrack} in TRACK_DICTIONARY for drawing drivers.`);
+      return;
+    }
+
+    // const driverDotRadius = 5; // Now effectiveDriverDotRadius
+
+    for (const driverName in liveDriversData) {
+      const driver = liveDriversData[driverName];
+      // Ensure we have the necessary world coordinates. world_y is typically altitude.
+      if (driver.world_x !== undefined && driver.world_z !== undefined) {
+        const effectiveD = trackParams.d / globalZoomFactor;
+        // Apply the same transformation as used for drawing the track
+        // Attempting to correct rotation: Game's X-coordinate maps to canvas X, Game's Z-coordinate maps to canvas Y
+        const canvasX = (driver.world_x / effectiveD) + trackParams.x_offset;
+        const canvasY = (driver.world_z / effectiveD) + trackParams.z_offset;
+
+        const teamColor = TEAM_COLORS[driver.team] || TEAM_COLORS['DEFAULT'];
+        ctx.fillStyle = teamColor;
+        ctx.beginPath();
+        ctx.arc(canvasX, canvasY, effectiveDriverDotRadius, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Optional: Draw driver name/initials - can be added later for clarity
+        // ctx.fillStyle = '#FFFFFF';
+        // ctx.font = '10px Arial';
+        // ctx.fillText(driver.name.substring(0,3).toUpperCase(), canvasX + driverDotRadius + 2, canvasY + driverDotRadius);
+      }
+    }
+  }
 
   async function loadAvailableTracks() {
     try {
@@ -286,7 +386,9 @@
       drawTrack(trackData, trackParams);
       
       setInfo(`Track loaded: ${trackData.name} (${trackData.points.length} points)`, '');
+      currentTrackLayoutData = trackData; // Store for redrawAll
       currentTrack = trackName;
+      redrawAll(); // Initial draw with drivers after track loads
       
     } catch (error) {
       console.error('Error loading track:', error);
@@ -295,7 +397,10 @@
   }
 
   function drawTrack(trackData, params) {
-    const { d, x_offset, z_offset } = params;
+    const effectiveWidthPoints = BASE_WIDTH_POINTS * globalZoomFactor;
+    const effectiveCheckerSize = BASE_CHECKER_SIZE * globalZoomFactor;
+    const { x_offset, z_offset } = params;
+    const effectiveD = params.d / globalZoomFactor;
     const points = trackData.points;
     
     if (points.length < 2) {
@@ -307,59 +412,57 @@
     clearCanvas();
     
     // Set line style to match reference
-    ctx.lineWidth = WIDTH_POINTS;
+    ctx.lineWidth = effectiveWidthPoints;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
     // Transform coordinates using the exact same algorithm as reference
     const transformedPoints = points.map(point => ({
-      x: (point.pos_z / d) + x_offset,
-      y: (point.pos_x / d) + z_offset,
+      x: (point.pos_z / effectiveD) + x_offset,
+      y: (point.pos_x / effectiveD) + z_offset,
       sector: point.sector,
       drs: point.drs
     }));
 
-    // Draw track segments with marshal zone coloring (similar to reference)
+    // Draw track segments in white
+    ctx.strokeStyle = '#FFFFFF'; // All track lines are white
     for (let i = 0; i < transformedPoints.length - 1; i++) {
       const point1 = transformedPoints[i];
       const point2 = transformedPoints[i + 1];
       
-      // Color based on sector (marshal zones)
-      let color = '#FFFFFF'; // Default white
-      if (point1.sector === 1) {
-        color = '#00FF00'; // Green for sector 1
-      } else if (point1.sector === 2) {
-        color = '#FFD700'; // Yellow for sector 2
-      } else if (point1.sector === 3) {
-        color = '#FF0000'; // Red for sector 3
-      }
-      
-      // DRS zones in purple
-      if (point1.drs === 1) {
-        color = '#9d4edd';
-      }
-      
-      ctx.strokeStyle = color;
       ctx.beginPath();
       ctx.moveTo(point1.x, point1.y);
       ctx.lineTo(point2.x, point2.y);
       ctx.stroke();
     }
 
-    // Draw start/finish line
+    // Draw checkered start/finish line
     if (transformedPoints.length > 0) {
       const startPoint = transformedPoints[0];
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = WIDTH_POINTS * 2;
-      ctx.beginPath();
-      ctx.moveTo(startPoint.x - 10, startPoint.y - 10);
-      ctx.lineTo(startPoint.x + 10, startPoint.y + 10);
-      ctx.moveTo(startPoint.x - 10, startPoint.y + 10);
-      ctx.lineTo(startPoint.x + 10, startPoint.y - 10);
-      ctx.stroke();
-      
-      // Reset line width
-      ctx.lineWidth = WIDTH_POINTS;
+      const numCheckers = 3;
+      // checkerSize is now effectiveCheckerSize defined at the start of drawTrack
+      let trackAngle = 0; // Default angle if only one point
+
+      if (transformedPoints.length >= 2) {
+        const nextPoint = transformedPoints[1];
+        const trackDx = nextPoint.x - startPoint.x;
+        const trackDy = nextPoint.y - startPoint.y;
+        trackAngle = Math.atan2(trackDy, trackDx);
+      }
+
+      ctx.save();
+      ctx.translate(startPoint.x, startPoint.y);
+      ctx.rotate(trackAngle + Math.PI / 2); // Rotate to be perpendicular to track direction
+
+      for (let i = 0; i < numCheckers; i++) {
+        ctx.fillStyle = (i % 2 === 0) ? '#FFFFFF' : '#000000';
+        // Calculate x position to center the line of checkers
+        const xPos = (i - numCheckers / 2) * effectiveCheckerSize;
+        // Calculate y position to center the checkers on the line
+        const yPos = -effectiveCheckerSize / 2;
+        ctx.fillRect(xPos, yPos, effectiveCheckerSize, effectiveCheckerSize);
+      }
+      ctx.restore();
     }
   }
 
