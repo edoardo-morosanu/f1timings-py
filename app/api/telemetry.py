@@ -41,7 +41,6 @@ class LiveDriverData(BaseModel):
 class SessionInfo(BaseModel):
     trackId: Optional[int] = None
     gamePaused: Optional[bool] = None
-    sessionType: Optional[int] = None
 
 
 class LiveTelemetryResponse(BaseModel):
@@ -278,14 +277,12 @@ async def get_full_live_telemetry_data() -> LiveTelemetryResponse:
     else:
         logger.debug(
             "get_full_live_telemetry_data: Participant data store not ready or no active drivers."
-        )
-
-    current_session_info = None
+        )    
+        current_session_info = None
     if isinstance(session_data_store, dict):
         current_session_info = SessionInfo(
             trackId=session_data_store.get("trackId"),
             gamePaused=bool(session_data_store.get("gamePaused", 0)),  # Ensure boolean
-            sessionType=session_data_store.get("sessionType"),
         )
     else:
         logger.debug(

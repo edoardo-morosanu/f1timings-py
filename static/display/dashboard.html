@@ -479,25 +479,6 @@
     let canvas, ctx;
     let driverMarkers = {};
     let currentDriverPositions = {};    let currentDriverInfo = {};
-    let currentSessionType = null;
-    
-    // Session type mapping (F1 2024 UDP spec)
-    const SESSION_TYPES = {
-      0: 'Unknown',
-      1: 'Practice 1',
-      2: 'Practice 2', 
-      3: 'Practice 3',
-      4: 'Short Practice',
-      5: 'Qualifying 1',
-      6: 'Qualifying 2',
-      7: 'Qualifying 3',
-      8: 'Short Qualifying',
-      9: 'OSQ',
-      10: 'Race',
-      11: 'Race 2',
-      12: 'Race 3',
-      13: 'Time Trial'
-    };
     
     // Team colors for driver markers (matching backend)
     const TEAM_COLORS = {
@@ -592,13 +573,8 @@
         const drivers = await response.json();
 
         allDriverData = drivers;
-        const processedDrivers = processDriverData(drivers);
-
-        updateLeaderboard(processedDrivers);
+        const processedDrivers = processDriverData(drivers);        updateLeaderboard(processedDrivers);
         updateFastestLapInfo(processedDrivers);
-        
-        // Fetch session data for session type
-        await loadSessionData();
         
         // Draw drivers on track if canvas is ready
         if (canvas && ctx && trackData) {
@@ -988,22 +964,14 @@
     }    function updateTrackTitle() {
       const titleElement = document.getElementById("trackTitle");
       const trackNameElement = document.getElementById("trackName");
-      
-      let titleText = "";
+        let titleText = "";
       let trackNameText = "";
       
       if (currentTrack) {
         const trackDisplayName = currentTrack.toUpperCase();
-        const sessionDisplayName = currentSessionType !== null ? 
-          SESSION_TYPES[currentSessionType] || 'Unknown Session' : '';
         
-        if (sessionDisplayName) {
-          titleText = `${trackDisplayName} - ${sessionDisplayName}`;
-          trackNameText = `${trackDisplayName} - ${sessionDisplayName}`;
-        } else {
-          titleText = trackDisplayName;
-          trackNameText = trackDisplayName;
-        }
+        titleText = trackDisplayName;
+        trackNameText = trackDisplayName;
         
         titleElement.textContent = titleText;
         trackNameElement.textContent = trackNameText;
@@ -1141,22 +1109,6 @@
         default:
           console.log("Unknown message type:", message.type);
       }
-    }
-
-    async function loadSessionData() {
-      try {
-        const response = await fetch("/api/telemetry/live_data_v2");
-        if (response.ok) {
-          const data = await response.json();
-          if (data.sessionInfo && data.sessionInfo.sessionType !== null) {
-            currentSessionType = data.sessionInfo.sessionType;
-            updateTrackTitle();
-          }
-        }
-      } catch (error) {
-        console.error("Error loading session data:", error);
-      }
-    }
-  </script>
+    }  </script>
 </body>
 </html>
