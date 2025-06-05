@@ -478,418 +478,116 @@
     let socket;
     let canvas, ctx;
     let driverMarkers = {};
-    let currentDriverPositions = {};
-    let currentDriverInfo = {};
+    let currentDriverPositions = {};    let currentDriverInfo = {};
+    let currentSessionType = null;
+    
+    // Session type mapping (F1 2024 UDP spec)
+    const SESSION_TYPES = {
+      0: 'Unknown',
+      1: 'Practice 1',
+      2: 'Practice 2', 
+      3: 'Practice 3',
+      4: 'Short Practice',
+      5: 'Qualifying 1',
+      6: 'Qualifying 2',
+      7: 'Qualifying 3',
+      8: 'Short Qualifying',
+      9: 'OSQ',
+      10: 'Race',
+      11: 'Race 2',
+      12: 'Race 3',
+      13: 'Time Trial'
+    };
     
     // Team colors for driver markers (matching backend)
     const TEAM_COLORS = {
-      0: "#F0F0F0",  // Mercedes
-      1: "#DC0000",  // Ferrari
-      2: "#0600EF",  // Red Bull
-      3: "#005AFF",  // Williams
-      4: "#005F0B",  // Aston Martin
-      5: "#FF8700",  // Alpine
-      6: "#FFFFFF",  // AlphaTauri
-      7: "#FF8700",  // Haas
-      8: "#FF8700",  // McLaren
-      9: "#900000",  // Alfa Romeo
-      10: "#0600EF", // Red Bull B-Team
-      11: "#0600EF", // Red Bull Academy
-      85: "#900000", // Mercedes 2020
-      86: "#DC0000", // Ferrari 2020
-      87: "#0600EF", // Red Bull 2020
-      88: "#005AFF", // Williams 2020
-      89: "#005F0B", // Racing Point 2020
-      90: "#FF8700", // Renault 2020
-      91: "#FFFFFF", // Alpha Tauri 2020
-      92: "#FF8700", // Haas 2020
+      'Mercedes-AMG Petronas F1 Team': '#00D2BE',
+      'Scuderia Ferrari': '#DC0000',
+      'Oracle Red Bull Racing': '#0600EF',
+      'Williams Racing': '#005AFF',
+      'Aston Martin Aramco F1 Team': '#006F62',
+      'BWT Alpine F1 Team': '#0090FF',
+      'Visa Cash App RB F1 Team': '#2B4562',
+      'MoneyGram Haas F1 Team': '#FFFFFF',
+      'McLaren F1 Team': '#FF8700',
+      'Stake F1 Team Kick Sauber': '#52E252',
+      'DEFAULT': '#FF00FF' // Default color if team not found (Magenta)
     };
-    
-    // Track dictionary with scaling parameters (matching backend)
+
+    // Track dictionary with scaling parameters (matching reference implementation)
     const TRACK_DICTIONARY = {
-      'melbourne': {'d': 3.5, 'x_offset': 300, 'z_offset': 300},
-      'paul_ricard': {'d': 2.5, 'x_offset': 500, 'z_offset': 300},
-      'shanghai': {'d': 2, 'x_offset': 300, 'z_offset': 300},
-      'sakhir': {'d': 2, 'x_offset': 600, 'z_offset': 350},
-      'catalunya': {'d': 2.5, 'x_offset': 400, 'z_offset': 300},
-      'monaco': {'d': 2, 'x_offset': 300, 'z_offset': 300},
-      'montreal': {'d': 3, 'x_offset': 300, 'z_offset': 100},
-      'silverstone': {'d': 3.5, 'x_offset': 400, 'z_offset': 250},
-      'hockenheim': {'d': 2, 'x_offset': 300, 'z_offset': 300},
-      'hungaroring': {'d': 2.5, 'x_offset': 400, 'z_offset': 300},
-      'spa': {'d': 3.5, 'x_offset': 500, 'z_offset': 350},
-      'monza': {'d': 4, 'x_offset': 400, 'z_offset': 300},
-      'singapore': {'d': 2, 'x_offset': 400, 'z_offset': 300},
-      'suzuka': {'d': 2.5, 'x_offset': 500, 'z_offset': 300},
-      'abu_dhabi': {'d': 2, 'x_offset': 500, 'z_offset': 250},
-      'texas': {'d': 2, 'x_offset': 400, 'z_offset': 50},
-      'brazil': {'d': 2, 'x_offset': 600, 'z_offset': 250},
-      'austria': {'d': 2, 'x_offset': 300, 'z_offset': 300},
-      'sochi': {'d': 2, 'x_offset': 300, 'z_offset': 300},
-      'mexico': {'d': 2.5, 'x_offset': 500, 'z_offset': 500},
-      'baku': {'d': 3, 'x_offset': 400, 'z_offset': 400},
-      'sakhir_short': {'d': 2, 'x_offset': 300, 'z_offset': 300},
-      'silverstone_short': {'d': 2, 'x_offset': 300, 'z_offset': 300},
-      'texas_short': {'d': 2, 'x_offset': 300, 'z_offset': 300},
-      'suzuka_short': {'d': 2, 'x_offset': 300, 'z_offset': 300},
-      'hanoi': {'d': 2, 'x_offset': 300, 'z_offset': 300},
-      'zandvoort': {'d': 4, 'x_offset': 400, 'z_offset': 250},
-      'imola': {'d': 2, 'x_offset': 500, 'z_offset': 300},
-      'portimao': {'d': 2, 'x_offset': 300, 'z_offset': 300},
-      'jeddah': {'d': 4, 'x_offset': 500, 'z_offset': 350},
-      'miami': {'d': 2, 'x_offset': 400, 'z_offset': 300},
-      'las_vegas': {'d': 4, 'x_offset': 400, 'z_offset': 300},
-      'losail': {'d': 2.5, 'x_offset': 400, 'z_offset': 300}
-    };
+      'abu_dhabi': { d: 2, x_offset: 800, z_offset: 400 },
+      'austria': { d: 2, x_offset: 800, z_offset: 400 },
+      'bahrain': { d: 2, x_offset: 800, z_offset: 400 },
+      'baku': { d: 3, x_offset: 800, z_offset: 400 },
+      'brazil': { d: 2, x_offset: 800, z_offset: 300 },
+      'catalunya': { d: 2.5, x_offset: 800, z_offset: 400 },
+      'hanoi': { d: 2.5, x_offset: 800, z_offset: 400 },
+      'hockenheim': { d: 2, x_offset: 800, z_offset: 400 },
+      'hungaroring': { d: 2.5, x_offset: 800, z_offset: 400 },
+      'imola': { d: 2, x_offset: 800, z_offset: 400 },
+      'jeddah': { d: 4, x_offset: 800, z_offset: 400 },
+      'las_vegas': { d: 4, x_offset: 800, z_offset: 400 },
+      'losail': { d: 2.5, x_offset: 800, z_offset: 400 },
+      'melbourne': { d: 3.5, x_offset: 800, z_offset: 400 },
+      'mexico': { d: 2.5, x_offset: 800, z_offset: 600 },
+      'miami': { d: 2, x_offset: 800, z_offset: 400 },
+      'monaco': { d: 2, x_offset: 800, z_offset: 400 },
+      'montreal': { d: 3, x_offset: 800, z_offset: 200 },
+      'monza': { d: 4, x_offset: 800, z_offset: 400 },
+      'paul_ricard': { d: 2.5, x_offset: 800, z_offset: 400 },
+      'portimao': { d: 2, x_offset: 800, z_offset: 400 },
+      'sakhir': { d: 2, x_offset: 800, z_offset: 400 },
+      'shanghai': { d: 2, x_offset: 800, z_offset: 400 },
+      'silverstone': { d: 3.5, x_offset: 800, z_offset: 400 },
+      'silverstone_short': { d: 2, x_offset: 800, z_offset: 400 },
+      'singapore': { d: 2, x_offset: 800, z_offset: 400 },
+      'sochi': { d: 2, x_offset: 800, z_offset: 400 },
+      'spa': { d: 3.5, x_offset: 800, z_offset: 400 },
+      'suzuka': { d: 2.5, x_offset: 800, z_offset: 400 },
+      'suzuka_short': { d: 2, x_offset: 800, z_offset: 400 },
+      'texas': { d: 2, x_offset: 800, z_offset: 200 },
+      'texas_short': { d: 2, x_offset: 800, z_offset: 400 },
+      'zandvoort': { d: 2, x_offset: 800, z_offset: 400 }    };
+    
+    let fetchDataInterval = null;
+    const FETCH_INTERVAL_MS = 17; // Fetch data every 0.017 seconds (same as track.html)
+    const DRIVER_DOT_RADIUS = 8; // Size of driver dots on the track
 
-    // Width constant for line drawing (increased for better visibility)
-    const WIDTH_POINTS = 8;
-    
-    // F1 2024 Team Colors with complete mapping (alternative color scheme)
-    const TEAM_COLORS_2024 = {
-      0: '#00D2BE', // Mercedes
-      1: '#DC0000', // Ferrari
-      2: '#0600EF', // Red Bull 
-      3: '#005AFF', // Williams
-      4: '#006F62', // Aston Martin
-      5: '#0090FF', // Alpine
-      6: '#2B4562', // AlphaTauri
-      7: '#F0D787', // Haas
-      8: '#FF8700', // McLaren
-      9: '#900000', // Alfa Romeo
-      10: '#FF8700', // McLaren (duplicate for API compatibility)
-      11: '#0600EF', // Red Bull Racing (duplicate for API compatibility)
-      99: '#FFFFFF', // Unknown team
-      "-1": '#FFFFFF' // Default
-    };
-    
-    // Setup event listeners when the page loads
     document.addEventListener("DOMContentLoaded", () => {
-      // Initialize canvas
-      canvas = document.getElementById('trackCanvas');
-      ctx = canvas.getContext('2d');
+      canvas = document.getElementById("trackCanvas");
+      ctx = canvas.getContext("2d");
       
-      // Load track name from API or localStorage
-      fetchTrackName();
+      console.log("Canvas initialized:", canvas);
+      console.log("Canvas dimensions:", canvas.width, "x", canvas.height);
+      console.log("Context:", ctx);
+      
+      // Initialize WebSocket for real-time updates
+      initializeWebSocket();
+      
+      // Load current track and lap times
+      loadCurrentTrack();
+      
+      // Start periodic data fetching
+      startDataFetching();
+    });
 
-      // Connect to WebSocket
-      connectWebSocket();
+    function startDataFetching() {
+      // Clear any existing interval
+      if (fetchDataInterval) {
+        clearInterval(fetchDataInterval);
+      }
       
       // Initial data load
       loadDisplayData();
-    });
-    
-    // WebSocket Implementation
-    function connectWebSocket() {
-      // Create WebSocket connection
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
       
-      console.log(`Connecting to WebSocket at ${wsUrl}`);
-      
-      if (socket) {
-        // Close any existing connection
-        socket.close();
-      }
-      
-      socket = new WebSocket(wsUrl);
-      socket.onopen = function(e) {
-        console.log("WebSocket connection established");
-      };
-
-      socket.onmessage = function(event) {
-        try {
-          const data = JSON.parse(event.data);
-          console.log("WebSocket message received:", data);
-
-          // Handle different message types
-          if (data.type === "laptime_update") {
-            loadDisplayData();
-          } else if (data.type === "telemetry") {
-            // Handle telemetry data for driver positions
-            console.log("Telemetry data received:", data);
-            
-            // Enhanced telemetry data handling to support all formats
-            // 1. Direct array of drivers
-            if (Array.isArray(data.drivers) && data.drivers.length > 0) {
-              console.log(`Received telemetry array for ${data.drivers.length} drivers on track ${data.track}`);
-              updateDriverPositions(data.drivers, data.track);
-            } 
-            // 2. Object with driver IDs as keys
-            else if (data.drivers && typeof data.drivers === 'object' && Object.keys(data.drivers).length > 0) {
-              console.log(`Received telemetry object for ${Object.keys(data.drivers).length} drivers on track ${data.track}`);
-              updateDriverPositions(data.drivers, data.track);
-            }
-            // 3. Nested telemetry structure
-            else if (data.data && data.data.drivers) {
-              const nestedDrivers = data.data.drivers;
-              const trackName = data.data.track_name || data.track || currentTrack;
-              console.log(`Received nested telemetry for drivers on track ${trackName}`);
-              updateDriverPositions(nestedDrivers, trackName);
-            }
-            // 4. No valid driver data found
-            else {
-              console.warn("Received telemetry data but no valid driver data was found", data);
-            }
-          } else {
-            // Try to use the handleWebSocketMessage function for other message types
-            handleWebSocketMessage(data);
-          }
-        } catch (error) {
-          console.error("Error processing WebSocket message:", error, event.data);
-        }
-      };
-
-      socket.onclose = (event) => {
-        console.log("WebSocket connection closed");
-        // Attempt to reconnect after a delay
-        setTimeout(connectWebSocket, 3000);
-      };
-      
-      socket.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        socket.close();
-      };
-    }
-
-    function handleWebSocketMessage(message) {
-      switch(message.type) {
-        case "user_update":
-          console.log("User update received:", message);
-          break;
-          
-        case "laptime_update":
-          console.log("Lap time update received:", message);
-          loadDisplayData();
-          break;
-          
-        case "track_update":
-          console.log("Track update received:", message);
-          if (message.data && message.data.name) {
-            currentTrack = message.data.name;
-            updateTrackTitle();
-            loadTrackData(); // Load track visualization when track changes
-          }
-          loadDisplayData();
-          break;          
-        
-        case "telemetry":
-        case "telemetry_update":
-          console.log("Telemetry update received:", message);
-          
-          // Enhanced telemetry handling to match the socket.onmessage implementation
-          // 1. Direct array of drivers
-          if (Array.isArray(message.drivers) && message.drivers.length > 0) {
-            console.log(`Handler: Received telemetry array for ${message.drivers.length} drivers`);
-            updateDriverPositions(message.drivers, message.track || currentTrack);
-          } 
-          // 2. Object with driver IDs as keys
-          else if (message.drivers && typeof message.drivers === 'object' && Object.keys(message.drivers).length > 0) {
-            console.log(`Handler: Received telemetry object with ${Object.keys(message.drivers).length} drivers`);
-            updateDriverPositions(message.drivers, message.track || currentTrack);
-          }
-          // 3. Nested in data property
-          else if (message.data && message.data.drivers) {
-            console.log(`Handler: Received telemetry in data property`);
-            const trackName = message.data.track_name || message.track || currentTrack;
-            updateDriverPositions(message.data.drivers, trackName);
-          }
-          // 4. Deeply nested in data.telemetry
-          else if (message.data && message.data.telemetry && message.data.telemetry.drivers) {
-            console.log(`Handler: Received deeply nested telemetry data`);
-            const driverData = message.data.telemetry;
-            const trackName = driverData.track_name || message.track || currentTrack;
-            updateDriverPositions(driverData.drivers, trackName);
-          }
-          // 5. No valid driver data
-          else {
-            console.warn("Handler: Received telemetry message but no valid driver data was found", message);
-          }
-          break;
-          
-        default:
-          console.log("Unknown message type:", message.type);
-      }
-    }    async function fetchTrackName() {
+      // Set up the interval for regular updates
+      fetchDataInterval = setInterval(() => {
+        loadDisplayData();
+      }, FETCH_INTERVAL_MS);
+    }    async function loadDisplayData() {
       try {
-        const response = await fetch("/api/track");
-        if (response.ok) {
-          const data = await response.json();
-          currentTrack = data.name;
-          updateTrackTitle();
-          // Load track data after setting track name
-          await loadTrackData();
-        } else {
-          const savedTrack = localStorage.getItem("currentTrack");
-          if (savedTrack) {
-            currentTrack = savedTrack;
-            updateTrackTitle();
-            // Load track data for saved track
-            await loadTrackData();
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching track name:", error);
-        const savedTrack = localStorage.getItem("currentTrack");
-        if (savedTrack) {
-          currentTrack = savedTrack;
-          updateTrackTitle();
-          // Load track data for saved track
-          await loadTrackData();
-        }
-      }
-    }    async function loadTrackData() {
-      if (!currentTrack) {
-        console.log("No track set, skipping track data load");
-        return;
-      }
-
-      try {
-        console.log(`Loading track data for: ${currentTrack}`);
-        // Try to load track data with the specific track parameter
-        const response = await fetch(`/api/track/data?track=${encodeURIComponent(currentTrack)}`);
-        
-        if (response.ok) {
-          trackData = await response.json();
-          console.log(`Track data loaded for ${trackData.name}:`, trackData);
-          displayTrackMapCanvas(trackData);
-        } else {
-          console.warn(`No track data found for ${currentTrack}`);
-          displayNoTrackData();
-        }
-      } catch (error) {
-        console.error("Error loading track data:", error);
-        displayNoTrackData();
-      }
-    }    function displayTrackMapCanvas(trackData) {
-      if (!trackData || !trackData.points || trackData.points.length === 0) {
-        displayNoTrackData();
-        return;
-      }
-
-      // Check if we have scaling parameters for this track
-      const trackParams = TRACK_DICTIONARY[currentTrack.toLowerCase()];
-      if (!trackParams) {
-        console.warn(`No visualization parameters available for ${currentTrack}`);
-        displayNoTrackData();
-        return;
-      }
-
-      // Show canvas, hide placeholder
-      canvas.style.display = 'block';
-      document.getElementById('trackPlaceholder').style.display = 'none';
-
-      // Draw the track using the exact same algorithm as the reference
-      drawTrackOnCanvas(trackData, trackParams);
-      
-      // Update track name
-      const trackNameElement = document.getElementById("trackName");
-      if (trackNameElement) {
-        trackNameElement.textContent = trackData.name.toUpperCase();
-      }
-      
-      console.log(`Track map displayed for ${trackData.name} with ${trackData.points.length} points`);
-    }    function drawTrackOnCanvas(trackData, params) {
-      const { d, x_offset, z_offset } = params;
-      const points = trackData.points;
-      
-      if (points.length < 2) {
-        console.warn('Not enough points to draw track');
-        displayNoTrackData();
-        return;
-      }
-
-      // Clear canvas completely (transparent background)
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Set line style - simple white line (thicker for better visibility)
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#FFFFFF';
-
-      // Transform coordinates using the exact same algorithm as reference
-      const transformedPoints = points.map(point => ({
-        x: (point.pos_z / d) + x_offset,
-        y: (point.pos_x / d) + z_offset
-      }));
-
-      // Calculate bounds of transformed points
-      const minX = Math.min(...transformedPoints.map(p => p.x));
-      const maxX = Math.max(...transformedPoints.map(p => p.x));
-      const minY = Math.min(...transformedPoints.map(p => p.y));
-      const maxY = Math.max(...transformedPoints.map(p => p.y));
-      
-      // Calculate track dimensions
-      const trackWidth = maxX - minX;
-      const trackHeight = maxY - minY;
-      
-      // Calculate scale to fit track in canvas with padding
-      const padding = 40;
-      const availableWidth = canvas.width - (2 * padding);
-      const availableHeight = canvas.height - (2 * padding);
-      const scale = Math.min(availableWidth / trackWidth, availableHeight / trackHeight);
-      
-      // Calculate centering offsets
-      const scaledWidth = trackWidth * scale;
-      const scaledHeight = trackHeight * scale;
-      const centerOffsetX = (canvas.width - scaledWidth) / 2;
-      const centerOffsetY = (canvas.height - scaledHeight) / 2;
-
-      // Apply centering and scaling to all points
-      const centeredPoints = transformedPoints.map(point => ({
-        x: (point.x - minX) * scale + centerOffsetX,
-        y: (point.y - minY) * scale + centerOffsetY
-      }));
-
-      // Draw track as one continuous white line
-      ctx.beginPath();
-      centeredPoints.forEach((point, index) => {
-        if (index === 0) {
-          ctx.moveTo(point.x, point.y);
-        } else {
-          ctx.lineTo(point.x, point.y);
-        }
-      });
-      
-      // Close the track loop
-      if (centeredPoints.length > 0) {
-        ctx.lineTo(centeredPoints[0].x, centeredPoints[0].y);
-      }      
-      ctx.stroke();
-    }
-    
-    function displayNoTrackData() {
-      // Hide canvas, show placeholder
-      canvas.style.display = 'none';
-      const placeholder = document.getElementById('trackPlaceholder');
-      placeholder.style.display = 'flex';
-      
-      placeholder.innerHTML = `
-        <div class="track-icon">🏁</div>
-        <div>Track Map Placeholder</div>
-        <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">
-          ${currentTrack ? `No track data available for ${currentTrack}` : 'Track visualization will appear here'}
-        </div>
-      `;
-    }
-
-    function updateTrackTitle() {
-      const titleElement = document.getElementById("trackTitle");
-      const trackNameElement = document.getElementById("trackName");
-      
-      if (currentTrack) {
-        titleElement.textContent = currentTrack.toUpperCase();
-        trackNameElement.textContent = currentTrack.toUpperCase();
-        document.title = `F1 ${currentTrack} Dashboard`;
-      } else {
-        titleElement.textContent = "DASHBOARD";
-        trackNameElement.textContent = "Circuit Name";
-        document.title = "F1 24 Dashboard";
-      }
-    }
-
-    async function loadDisplayData() {
-      try {
+        // Fetch driver data
         const response = await fetch("/api/drivers");
         const drivers = await response.json();
 
@@ -898,6 +596,14 @@
 
         updateLeaderboard(processedDrivers);
         updateFastestLapInfo(processedDrivers);
+        
+        // Fetch session data for session type
+        await loadSessionData();
+        
+        // Draw drivers on track if canvas is ready
+        if (canvas && ctx && trackData) {
+          drawDriversOnTrack(drivers);
+        }
       } catch (error) {
         console.error("Error loading display data:", error);
       }
@@ -1079,282 +785,236 @@
       const formattedSeconds = seconds < 10 ? `0${seconds.toFixed(3)}` : seconds.toFixed(3);
 
       return `${minutes}:${formattedSeconds}`;
-    }
+    }    function drawTrackOnCanvas(trackData, params) {
+      console.log(`Drawing track on canvas with params:`, params);
+      const { d, x_offset, z_offset } = params;
+      const points = trackData.points;
+      
+      console.log(`Track has ${points.length} points`);
+        if (points.length < 2) {
+        console.warn('Not enough points to draw track');
+        displayNoTrackData();
+        return;
+      }
 
-    function updateDriverPositions(drivers, trackName) {
-      console.log("Driver position update received", drivers);
+      // Clear canvas completely
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      if (!canvas || !ctx) {
-        console.warn("Canvas not initialized");
-        return;
-      }
-      
-      let driversArray = [];
-      
-      if (Array.isArray(drivers)) {
-        driversArray = drivers;
-      } else if (typeof drivers === 'object' && drivers !== null) {
-        driversArray = Object.values(drivers);
-      }
-      
-      if (!driversArray || driversArray.length === 0) {
-        console.warn("No valid driver data received");
-        return;
-      }
-      
-      if (canvas && canvas.style.display === 'none') {
-        canvas.style.display = 'block';
-        document.getElementById('trackPlaceholder').style.display = 'none';
-        console.log("Made track canvas visible");
-      }
-      
-      // If track name is provided and different from current, update it
-      if (trackName && trackName !== currentTrack && TRACK_DICTIONARY[trackName.toLowerCase()]) {
-        currentTrack = trackName;
-        updateTrackTitle();
-        loadTrackData();
-      }
-      
-      // Get track parameters for coordinate transformation
-      const trackParams = TRACK_DICTIONARY[currentTrack.toLowerCase()];
-      if (!trackParams) {
-        console.warn(`No track parameters for ${currentTrack}`);
-        return;
-      }
-      
-      // Log the track parameters for debugging
-      console.log(`Using track parameters for ${currentTrack}:`, trackParams);
-      
-      // Process each driver
-      driversArray.forEach(driver => {
-        // For API response format, use the driver name as the ID
-        // This matches the approach in the reference implementation where each driver has a unique name
-        const driverId = driver.name ? driver.name.replace(/\s+/g, '_') : 'unknown';
-        
-        // Log the driver data with the ID we're using
-        console.log(`Processing driver with ID: ${driverId}, data:`, driver);
-        const driverName = driver.name;
-        const teamId = driver.team_id || driver.team;
-        const worldX = driver.world_position_x;
-        const worldZ = driver.world_position_z;
-        
-        // Log the driver data for debugging
-        console.log(`Processing driver: ${driverName}, ID: ${driverId}, Position: (${worldX}, ${worldZ})`);
-        
-        // Skip if driver has no position data
-        if (worldX === undefined || worldZ === undefined) {
-          console.warn(`Driver ${driverName} has no position data`);
-          return;
-        }
-        
-        // Force numeric conversion for position data
-        const numWorldX = Number(worldX);
-        const numWorldZ = Number(worldZ);
-        
-        if (isNaN(numWorldX) || isNaN(numWorldZ)) {
-          console.warn(`Driver ${driverName} has invalid position data: X=${worldX}, Z=${worldZ}`);
-          return;
-        }
-        
-        // Skip if no position data
-        if (numWorldX === 0 && numWorldZ === 0) return;
-        
-        // Transform world coordinates to canvas coordinates using the same algorithm as the track
-        const { d, x_offset, z_offset } = trackParams;
-        
-        // Calculate raw transformed coordinates using the numeric values
-        // This is the exact same algorithm used in the reference implementation
-        let transformedX = (numWorldZ / d) + x_offset;
-        let transformedY = (numWorldX / d) + z_offset;
-        
-        console.log(`Transformed coordinates for ${driverName}: (${transformedX}, ${transformedY})`);
-        
-        
-        // Apply the same scaling and centering as the track
+      // Set line style - simple white line (thicker for better visibility)
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#FFFFFF';
 
-        // Apply the same scaling and centering as the track
-        if (trackData && trackData.points && trackData.points.length > 0) {
-          // Get track bounds from the track drawing function
-          const transformedPoints = trackData.points.map(point => ({
-            x: (point.pos_z / d) + x_offset,
-            y: (point.pos_x / d) + z_offset
-          }));
-          
-          // This is the exact same algorithm used in the reference implementation
-          // First, get the track dimensions from the canvas
-          const canvasRect = canvas.getBoundingClientRect();
-          
-          // Calculate the scaling factors based on the canvas size
-          const canvasWidth = canvasRect.width;
-          const canvasHeight = canvasRect.height;
-          
-          // Get the track bounds from the previously drawn track
-          const minX = Math.min(...transformedPoints.map(p => p.x));
-          const maxX = Math.max(...transformedPoints.map(p => p.x));
-          const minY = Math.min(...transformedPoints.map(p => p.y));
-          const maxY = Math.max(...transformedPoints.map(p => p.y));
-          
-          const trackWidth = maxX - minX;
-          const trackHeight = maxY - minY;
-          
-          // Calculate scaling to fit track in canvas with padding
-          const padding = 40;
-          const availableWidth = canvasWidth - (2 * padding);
-          const availableHeight = canvasHeight - (2 * padding);
-          const scale = Math.min(availableWidth / trackWidth, availableHeight / trackHeight);
-          
-          // Calculate centering offsets
-          const centerOffsetX = (canvasWidth - (trackWidth * scale)) / 2;
-          const centerOffsetY = (canvasHeight - (trackHeight * scale)) / 2;
-          
-          // Final scaled and centered coordinates
-          const finalX = ((transformedX - minX) * scale) + centerOffsetX;
-          const finalY = ((transformedY - minY) * scale) + centerOffsetY;
-          
-          console.log(`Final coordinates for ${driverName}: (${finalX}, ${finalY})`);
-          
-          // Use these final coordinates for positioning the driver marker
-          transformedX = finalX;
-          transformedY = finalY;
-        }
-        
-        // Get team color - use the color from the telemetry data if available, otherwise fallback to team colors
-        const teamColor = driver.color || TEAM_COLORS[teamId] || '#FFFFFF';
-        
-        // Create or update driver marker - following the reference implementation approach
-        if (!driverMarkers[driverId]) {
-          console.log(`Creating new marker for driver ${driverId} at position (${transformedX}, ${transformedY})`);
-          
-          // Create new marker elements - similar to how the reference implementation creates oval elements
-          const driverGroup = document.createElement('div');
-          driverGroup.className = 'driver-marker';
-          driverGroup.style.position = 'absolute';
-          driverGroup.style.left = `${transformedX}px`;
-          driverGroup.style.top = `${transformedY}px`;
-          driverGroup.style.transform = 'translate(-50%, -50%)';
-          driverGroup.style.zIndex = '10';
-          
-          // Create driver oval
-          const oval = document.createElement('div');
-          oval.style.width = '12px';
-          oval.style.height = '12px';
-          oval.style.borderRadius = '50%';
-          oval.style.backgroundColor = teamColor;
-          oval.style.border = '1px solid white';
-          
-          // Create driver label
-          const label = document.createElement('div');
-          label.style.position = 'absolute';
-          label.style.top = '12px';
-          label.style.left = '50%';
-          label.style.transform = 'translateX(-50%)';
-          label.style.color = 'white';
-          label.style.fontSize = '10px';
-          label.style.fontWeight = 'bold';
-          label.style.textShadow = '0 0 2px black';
-          label.textContent = driverName.substring(0, 3).toUpperCase();
-          
-          // Add elements to the DOM
-          driverGroup.appendChild(oval);
-          driverGroup.appendChild(label);
-          
-          // Find the track-map element - it should be a direct child of track-container
-          const trackMapElement = document.querySelector('.track-map');
-          if (trackMapElement) {
-            trackMapElement.appendChild(driverGroup);
-            console.log(`Added driver marker ${driverId} to track map`);
-          } else {
-            console.error('Could not find track-map element, trying to create it');
-            // Try to find the track-container and create the track-map element if needed
-            const trackContainer = document.querySelector('.track-container');
-            if (trackContainer) {
-              const newTrackMap = document.createElement('div');
-              newTrackMap.className = 'track-map';
-              trackContainer.appendChild(newTrackMap);
-              newTrackMap.appendChild(driverGroup);
-              console.log(`Created new track-map element and added driver marker ${driverId}`);
-            } else {
-              console.error('Could not find track-container element either');
-            }
-          }
-          
-          // Store references
-          driverMarkers[driverId] = {
-            group: driverGroup,
-            oval: oval,
-            label: label
-          };
-          
-          // Initialize position tracking for smooth updates
-          currentDriverPositions[driverId] = {
-            x: transformedX,
-            y: transformedY
-          };
-          
-          // Store driver info
-          currentDriverInfo[driverId] = {
-            name: driverName,
-            teamId: teamId
-          };
+      // Transform coordinates using the exact same algorithm as reference
+      const transformedPoints = points.map(point => ({
+        x: (point.pos_z / d) + x_offset,
+        y: (point.pos_x / d) + z_offset
+      }));
+
+      // Calculate bounds of transformed points
+      const minX = Math.min(...transformedPoints.map(p => p.x));
+      const maxX = Math.max(...transformedPoints.map(p => p.x));
+      const minY = Math.min(...transformedPoints.map(p => p.y));
+      const maxY = Math.max(...transformedPoints.map(p => p.y));
+      
+      // Calculate track dimensions
+      const trackWidth = maxX - minX;
+      const trackHeight = maxY - minY;
+      
+      // Calculate scale to fit track in canvas with padding
+      const padding = 40;
+      const availableWidth = canvas.width - (2 * padding);
+      const availableHeight = canvas.height - (2 * padding);
+      const scale = Math.min(availableWidth / trackWidth, availableHeight / trackHeight);
+      
+      // Calculate centering offsets
+      const scaledWidth = trackWidth * scale;
+      const scaledHeight = trackHeight * scale;
+      const centerOffsetX = (canvas.width - scaledWidth) / 2;
+      const centerOffsetY = (canvas.height - scaledHeight) / 2;
+
+      // Apply centering and scaling to all points
+      const centeredPoints = transformedPoints.map(point => ({
+        x: (point.x - minX) * scale + centerOffsetX,
+        y: (point.y - minY) * scale + centerOffsetY
+      }));
+
+      // Draw track as one continuous white line
+      ctx.beginPath();
+      centeredPoints.forEach((point, index) => {
+        if (index === 0) {
+          ctx.moveTo(point.x, point.y);
         } else {
-          // Update existing marker with smooth transition
-          const marker = driverMarkers[driverId];
-          
-          // Apply smooth transition using CSS
-          marker.group.style.transition = 'left 0.1s linear, top 0.1s linear';
-          marker.group.style.left = `${transformedX}px`;
-          marker.group.style.top = `${transformedY}px`;
-          
-          // Update team color if changed
-          if (currentDriverInfo[driverId].teamId !== teamId) {
-            marker.oval.style.backgroundColor = teamColor;
-            currentDriverInfo[driverId].teamId = teamId;
-          }
-          
-          // Update name if changed
-          if (currentDriverInfo[driverId].name !== driverName) {
-            marker.label.textContent = driverName.substring(0, 3).toUpperCase();
-            currentDriverInfo[driverId].name = driverName;
-          }
-          
-          // Update position tracking
-          currentDriverPositions[driverId] = {
-            x: transformedX,
-            y: transformedY
-          };
+          ctx.lineTo(point.x, point.y);
         }
       });
       
-      // Remove markers for drivers no longer in the data
-      // Get the IDs of all active drivers using the same ID generation logic as above
-      const activeDriverIds = driversArray.map(d => d.name ? d.name.replace(/\s+/g, '_') : 'unknown');
-      
-      // Clean up markers for drivers no longer in the data
-      Object.keys(driverMarkers).forEach(id => {
-        if (!activeDriverIds.includes(id)) {
-          console.log(`Removing marker for driver ${id} as they are no longer active`);
-          // Remove from DOM
-          if (driverMarkers[id].group && driverMarkers[id].group.parentNode) {
-            driverMarkers[id].group.parentNode.removeChild(driverMarkers[id].group);
-          }
-          // Clean up references
-          delete driverMarkers[id];
-          delete currentDriverPositions[id];
-          delete currentDriverInfo[id];
-        }
-      });
-      
-      // Debug info
-      console.log(`Updated ${activeDriverIds.length} driver positions on track ${currentTrack}`);
-      
-      // Show the canvas if it was hidden
-      canvas.style.display = 'block';
-      const placeholder = document.getElementById('trackPlaceholder');
-      if (placeholder) {
-        placeholder.style.display = 'none';
-      }
+      // Close the track loop
+      if (centeredPoints.length > 0) {
+        ctx.lineTo(centeredPoints[0].x, centeredPoints[0].y);
+      }      
+      ctx.stroke();
+        // Store the transformation parameters for driver positioning
+      trackData.transformParams = {
+        minX: minX,
+        minY: minY,
+        scale: scale,
+        centerOffsetX: centerOffsetX,
+        centerOffsetY: centerOffsetY      };
     }
     
+    function redrawTrackOnly() {
+      if (!trackData || !trackData.points) {
+        return;
+      }
+      
+      const trackParams = TRACK_DICTIONARY[currentTrack.toLowerCase()];
+      if (!trackParams) {
+        return;
+      }
+        const { d, x_offset, z_offset } = trackParams;
+      const points = trackData.points;
+      
+      // Clear canvas completely
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Set line style - simple white line (thicker for better visibility)
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#FFFFFF';
+
+      // Transform coordinates using the exact same algorithm as reference
+      const transformedPoints = points.map(point => ({
+        x: (point.pos_z / d) + x_offset,
+        y: (point.pos_x / d) + z_offset
+      }));
+
+      // Use stored transformation parameters
+      const { minX, minY, scale, centerOffsetX, centerOffsetY } = trackData.transformParams;
+
+      // Apply centering and scaling to all points
+      const centeredPoints = transformedPoints.map(point => ({
+        x: (point.x - minX) * scale + centerOffsetX,
+        y: (point.y - minY) * scale + centerOffsetY
+      }));
+
+      // Draw track as one continuous white line
+      ctx.beginPath();
+      centeredPoints.forEach((point, index) => {
+        if (index === 0) {
+          ctx.moveTo(point.x, point.y);
+        } else {
+          ctx.lineTo(point.x, point.y);
+        }
+      });
+      
+      // Close the track loop
+      if (centeredPoints.length > 0) {
+        ctx.lineTo(centeredPoints[0].x, centeredPoints[0].y);
+      }
+      
+      ctx.stroke();
+    }
+      function drawDriversOnTrack(driversData) {
+      if (!canvas || !ctx || !trackData || !trackData.transformParams) {
+        return; // Not ready to draw drivers yet
+      }
+      
+      const trackParams = TRACK_DICTIONARY[currentTrack.toLowerCase()];
+      if (!trackParams) {
+        return; // No track parameters available
+      }
+      
+      // Redraw the track first (without triggering recursive calls)
+      redrawTrackOnly();
+      
+      const { d, x_offset, z_offset } = trackParams;
+      const { minX, minY, scale, centerOffsetX, centerOffsetY } = trackData.transformParams;
+        // Draw each driver that has position data
+      for (const [driverName, driver] of Object.entries(driversData)) {        // Skip if no position data available
+        if (driver.world_x === undefined || driver.world_z === undefined) {
+          continue;
+        }
+          // Transform driver coordinates using the same algorithm as the track points
+        // Game's X-coordinate maps to canvas X, Game's Z-coordinate maps to canvas Y (same as track.html)
+        const rawX = (driver.world_x / d) + x_offset;
+        const rawY = (driver.world_z / d) + z_offset;
+        
+        // Apply the same scaling and centering as used for the track
+        const canvasX = (rawX - minX) * scale + centerOffsetX;
+        const canvasY = (rawY - minY) * scale + centerOffsetY;
+        
+        // Get team color for this driver
+        const teamColor = TEAM_COLORS[driver.team] || TEAM_COLORS['DEFAULT'];
+        
+        // Draw driver marker
+        ctx.fillStyle = teamColor;
+        ctx.beginPath();
+        ctx.arc(canvasX, canvasY, DRIVER_DOT_RADIUS, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Draw white border around the dot
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(canvasX, canvasY, DRIVER_DOT_RADIUS, 0, 2 * Math.PI);
+        ctx.stroke();
+        
+        // Optionally add driver initials or car number
+        const driverInitials = driverName.split(' ').map(part => part[0]).join('').toUpperCase();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(driverInitials, canvasX, canvasY);
+      }
+    }
+
+    function displayNoTrackData() {
+      // Hide canvas, show placeholder
+      canvas.style.display = 'none';
+      const placeholder = document.getElementById('trackPlaceholder');
+      placeholder.style.display = 'flex';
+      
+      placeholder.innerHTML = `
+        <div class="track-icon">🏁</div>
+        <div>Track Map Placeholder</div>
+        <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">
+          ${currentTrack ? `No track data available for ${currentTrack}` : 'Track visualization will appear here'}
+        </div>
+      `;
+    }    function updateTrackTitle() {
+      const titleElement = document.getElementById("trackTitle");
+      const trackNameElement = document.getElementById("trackName");
+      
+      let titleText = "";
+      let trackNameText = "";
+      
+      if (currentTrack) {
+        const trackDisplayName = currentTrack.toUpperCase();
+        const sessionDisplayName = currentSessionType !== null ? 
+          SESSION_TYPES[currentSessionType] || 'Unknown Session' : '';
+        
+        if (sessionDisplayName) {
+          titleText = `${trackDisplayName} - ${sessionDisplayName}`;
+          trackNameText = `${trackDisplayName} - ${sessionDisplayName}`;
+        } else {
+          titleText = trackDisplayName;
+          trackNameText = trackDisplayName;
+        }
+        
+        titleElement.textContent = titleText;
+        trackNameElement.textContent = trackNameText;
+        document.title = `F1 ${titleText} Dashboard`;
+      } else {
+        titleElement.textContent = "DASHBOARD";
+        trackNameElement.textContent = "Circuit Name";
+        document.title = "F1 24 Dashboard";
+      }
+    }
+
     function getCurrentDriverInfo(driverId) {
       // Return stored driver info from latest telemetry
       return currentDriverInfo[driverId] || {
@@ -1362,6 +1022,140 @@
         name: `Driver ${driverId}`,
         team_id: Math.floor(driverId / 2) + 1 // Fallback team assignment
       };
+    }
+
+    async function loadCurrentTrack() {
+      try {
+        const response = await fetch('/api/track');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.name) {
+            currentTrack = data.name.toLowerCase();
+            updateTrackTitle();
+            loadTrackVisualization(currentTrack);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading current track:', error);
+      }
+    }    async function loadTrackVisualization(trackName) {
+      try {
+        console.log(`Loading track visualization for: ${trackName}`);
+        
+        // First check if we have scaling parameters for this track
+        const trackParams = TRACK_DICTIONARY[trackName.toLowerCase()];
+        if (!trackParams) {
+          console.warn(`No visualization parameters available for ${trackName}`);
+          displayNoTrackData();
+          return;
+        }
+
+        console.log(`Track parameters found:`, trackParams);
+
+        // Load track data
+        const response = await fetch(`/api/track/data?track=${encodeURIComponent(trackName)}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const newTrackData = await response.json();
+        console.log(`Track data loaded:`, newTrackData);
+        
+        if (!newTrackData.points || newTrackData.points.length === 0) {
+          console.warn('No track points available');
+          displayNoTrackData();
+          return;
+        }
+
+        // Store track data and show canvas
+        trackData = newTrackData;
+        canvas.style.display = 'block';
+        document.getElementById('trackPlaceholder').style.display = 'none';
+        
+        console.log(`About to draw track with ${newTrackData.points.length} points`);
+
+        // Draw the track
+        drawTrackOnCanvas(trackData, trackParams);
+        
+        console.log(`Track loaded: ${trackData.name} (${trackData.points.length} points)`);
+        
+      } catch (error) {
+        console.error('Error loading track:', error);
+        displayNoTrackData();
+      }
+    }
+
+    function initializeWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
+      socket = new WebSocket(wsUrl);
+      
+      socket.onopen = () => {
+        console.log('WebSocket connected');
+      };
+      
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          handleWebSocketMessage(message);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+      
+      socket.onclose = () => {
+        console.log('WebSocket disconnected, attempting to reconnect...');
+        setTimeout(initializeWebSocket, 2000);
+      };
+      
+      socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        socket.close();
+      };
+    }
+
+    function handleWebSocketMessage(message) {
+      switch(message.type) {
+        case "user_update":
+          console.log("User update received:", message);
+          break;
+          
+        case "laptime_update":
+          console.log("Lap time update received:", message);
+          // Refresh display data when lap times change
+          loadDisplayData();
+          break;
+          
+        case "track_update":
+          console.log("Track update received:", message);
+          // Update track name and refresh display data
+          if (message.data && message.data.name) {
+            currentTrack = message.data.name.toLowerCase();
+            updateTrackTitle();
+            loadTrackVisualization(currentTrack);
+          }
+          loadDisplayData();
+          break;
+          
+        default:
+          console.log("Unknown message type:", message.type);
+      }
+    }
+
+    async function loadSessionData() {
+      try {
+        const response = await fetch("/api/telemetry/live_data_v2");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.sessionInfo && data.sessionInfo.sessionType !== null) {
+            currentSessionType = data.sessionInfo.sessionType;
+            updateTrackTitle();
+          }
+        }
+      } catch (error) {
+        console.error("Error loading session data:", error);
+      }
     }
   </script>
 </body>

@@ -1048,6 +1048,58 @@
           }
         }, 5000); // 5 second delay
       }
+      
+      function formatTime(timeInput) {
+        let totalSeconds;
+
+        if (typeof timeInput === "string") {
+          if (timeInput.includes(":")) {
+            const parts = timeInput.split(/[:.]/);
+            if (parts.length === 3) {
+              totalSeconds =
+                parseInt(parts[0]) * 60 +
+                parseInt(parts[1]) +
+                parseFloat(`0.${parts[2]}`);
+            } else if (parts.length === 2) {
+              totalSeconds =
+                parseInt(parts[0]) * 60 + parseInt(parts[1]);
+            } else {
+              totalSeconds = parseFloat(timeInput);
+            }
+          } else if (timeInput.includes(".")) {
+            const parts = timeInput.split(".");
+            if (parts.length === 3) {
+              totalSeconds =
+                parseInt(parts[0]) * 60 +
+                parseInt(parts[1]) +
+                parseFloat(`0.${parts[2]}`);
+            } else {
+              totalSeconds = parseFloat(timeInput);
+            }
+          } else {
+            totalSeconds = parseFloat(timeInput);
+          }
+        } else if (typeof timeInput === "number") {
+          totalSeconds = timeInput;
+        } else {
+          return "N/A";
+        }
+
+        if (
+          isNaN(totalSeconds) ||
+          totalSeconds === Infinity ||
+          totalSeconds < 0
+        ) {
+          return "N/A";
+        }
+
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const formattedSeconds =
+          seconds < 10 ? `0${seconds.toFixed(3)}` : seconds.toFixed(3);
+
+        return `${minutes}:${formattedSeconds}`;
+      }
     </script>
   </body>
 </html>
