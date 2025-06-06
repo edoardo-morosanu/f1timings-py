@@ -93,8 +93,8 @@ async def delete_lap_time_endpoint(
 
 
 @router.get("/api/track", response_model=TrackNameResponse, tags=["Track"])
-async def get_track_name_endpoint(current_user=Depends(require_auth)):
-    """Gets the currently set track name with case matching to available tracks."""
+async def get_track_name_endpoint():
+    """Gets the currently set track name with case matching to available tracks (no auth required for display)."""
     stored_track_name = await get_track()
 
     if not stored_track_name:
