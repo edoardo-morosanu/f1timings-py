@@ -34,6 +34,180 @@ class TrackService:
 
         return sorted(available_tracks)
 
+    def find_matching_track_name(self, input_track_name: str) -> Optional[str]:
+        """
+        Find the best matching track name from available tracks using case-insensitive matching
+        with comprehensive alias support.
+
+        Args:
+            input_track_name: The track name to match (can be any case)
+
+        Returns:
+            The actual track name from available tracks, or None if no match found
+        """
+        if not input_track_name:
+            return None
+
+        available_tracks = self.get_available_tracks()
+        input_normalized = input_track_name.lower().replace(" ", "_").replace("-", "_")
+
+        # Track aliases mapping - common names to actual track file names
+        track_aliases = {
+            # Country/Location based aliases
+            "australia": "melbourne",
+            "australian": "melbourne",
+            "austria": "austria",
+            "austrian": "austria",
+            "azerbaijan": "baku",
+            "bahrain": "bahrain",
+            "bahraini": "bahrain",
+            "belgium": "spa",
+            "belgian": "spa",
+            "brazil": "brazil",
+            "brazilian": "brazil",
+            "canada": "canada",
+            "canadian": "canada",
+            "china": "shanghai",
+            "chinese": "shanghai",
+            "france": "paul_ricard",
+            "french": "paul_ricard",
+            "germany": "hungaroring",  # Note: No German GP in current files
+            "hungary": "hungaroring",
+            "hungarian": "hungaroring",
+            "italy": "monza",
+            "italian": "monza",
+            "japan": "suzuka",
+            "japanese": "suzuka",
+            "mexico": "mexico",
+            "mexican": "mexico",
+            "netherlands": "zandvoort",
+            "dutch": "zandvoort",
+            "qatar": "losail",
+            "russia": "sochi",
+            "russian": "sochi",
+            "saudi_arabia": "jeddah",
+            "saudi": "jeddah",
+            "singapore": "singapore",
+            "spain": "catalunya",
+            "spanish": "catalunya",
+            "uk": "silverstone",
+            "britain": "silverstone",
+            "british": "silverstone",
+            "england": "silverstone",
+            "usa": "texas",
+            "united_states": "texas",
+            "america": "texas",
+            "american": "texas",
+            "uae": "abu_dhabi",
+            "emirates": "abu_dhabi",
+            "vietnam": "hanoi",
+            "vietnamese": "hanoi",
+            # Circuit/Track name aliases
+            "albert_park": "melbourne",
+            "red_bull_ring": "austria",
+            "spielberg": "austria",
+            "baku_city_circuit": "baku",
+            "bahrain_international_circuit": "bahrain",
+            "spa_francorchamps": "spa",
+            "francorchamps": "spa",
+            "interlagos": "brazil",
+            "sao_paulo": "brazil",
+            "gilles_villeneuve": "canada",
+            "montreal": "canada",
+            "shanghai_international_circuit": "shanghai",
+            "circuit_paul_ricard": "paul_ricard",
+            "le_castellet": "paul_ricard",
+            "hungaroring": "hungaroring",
+            "budapest": "hungaroring",
+            "autodromo_nazionale_monza": "monza",
+            "suzuka_circuit": "suzuka",
+            "autodromo_hermanos_rodriguez": "mexico",
+            "mexico_city": "mexico",
+            "circuit_zandvoort": "zandvoort",
+            "losail_international_circuit": "losail",
+            "doha": "losail",
+            "sochi_autodrom": "sochi",
+            "jeddah_corniche_circuit": "jeddah",
+            "marina_bay": "singapore",
+            "singapore_street_circuit": "singapore",
+            "circuit_de_catalunya": "catalunya",
+            "barcelona": "catalunya",
+            "silverstone_circuit": "silverstone",
+            "yas_marina": "abu_dhabi",
+            "yas_marina_circuit": "abu_dhabi",
+            "hanoi_street_circuit": "hanoi",
+            "circuit_of_the_americas": "texas",
+            "cota": "texas",
+            "austin": "texas",
+            "imola_circuit": "imola",
+            "autodromo_enzo_e_dino_ferrari": "imola",
+            "san_marino": "imola",
+            "las_vegas_strip": "las_vegas",
+            "vegas": "las_vegas",
+            "strip": "las_vegas",
+            "miami_international_autodrome": "miami",
+            "hard_rock_stadium": "miami",
+            "monaco_street_circuit": "monaco",
+            "monte_carlo": "monaco",
+            "circuit_de_monaco": "monaco",
+            "sakhir_circuit": "sakhir",
+        }
+
+        # First try alias matching
+        for alias, actual_track in track_aliases.items():
+            if input_normalized == alias or input_normalized.replace(
+                "_", ""
+            ) == alias.replace("_", ""):
+                # Check if the actual track exists in available tracks
+                for track in available_tracks:
+                    if track.lower() == actual_track.lower():
+                        logger.info(
+                            f"Alias match found for '{input_track_name}' -> '{alias}' -> '{track}'"
+                        )
+                        return track
+
+        # Second, try exact match (case-insensitive)
+        for track in available_tracks:
+            if track.lower() == input_normalized:
+                logger.info(f"Exact match found for '{input_track_name}': '{track}'")
+                return track
+
+        # Third, try partial matching - check if input is contained in any track name
+        for track in available_tracks:
+            track_normalized = track.lower().replace(" ", "_").replace("-", "_")
+            if (
+                input_normalized in track_normalized
+                or track_normalized in input_normalized
+            ):
+                logger.info(f"Partial match found for '{input_track_name}': '{track}'")
+                return track
+
+        # Fourth, try matching without common prefixes/suffixes
+        cleaned_input = (
+            input_normalized.replace("circuit", "")
+            .replace("track", "")
+            .replace("street", "")
+            .replace("international", "")
+            .strip("_")
+        )
+        for track in available_tracks:
+            cleaned_track = (
+                track.lower()
+                .replace("circuit", "")
+                .replace("track", "")
+                .replace("street", "")
+                .replace("international", "")
+                .strip("_")
+            )
+            if cleaned_input == cleaned_track:
+                logger.info(f"Cleaned match found for '{input_track_name}': '{track}'")
+                return track
+
+        logger.warning(
+            f"No matching track found for '{input_track_name}' in available tracks: {available_tracks}"
+        )
+        return None
+
     def find_track_file(self, track_name: str) -> Optional[Path]:
         """Find the racing line file for a given track name."""
         if not TRACKS_DIR.exists():

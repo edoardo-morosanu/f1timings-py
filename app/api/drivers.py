@@ -25,7 +25,7 @@ from app.services.crud import (
 from app.utils.helpers import generate_csv_content, update_overall_fastest_lap
 from app.services.track_service import track_service
 from app.dependencies.auth import require_auth
-from app.api.telemetry import get_live_driver_data_for_api # Import new helper
+from app.api.telemetry import get_live_driver_data_for_api  # Import new helper
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -94,9 +94,29 @@ async def delete_lap_time_endpoint(
 
 @router.get("/api/track", response_model=TrackNameResponse, tags=["Track"])
 async def get_track_name_endpoint(current_user=Depends(require_auth)):
-    """Gets the currently set track name."""
-    track_name = await get_track()
-    return TrackNameResponse(name=track_name or "")  # Return empty string if None
+    """Gets the currently set track name with case matching to available tracks."""
+    stored_track_name = await get_track()
+
+    if not stored_track_name:
+        return TrackNameResponse(name="")
+
+    # Try to find a matching track name from available tracks
+    matched_track_name = track_service.find_matching_track_name(stored_track_name)
+
+    if matched_track_name:
+        # Update the stored track name to match the actual available track
+        if matched_track_name != stored_track_name:
+            logger.info(
+                f"Updating stored track name from '{stored_track_name}' to '{matched_track_name}'"
+            )
+            from app.models.models import TrackNameInput
+
+            await set_track(TrackNameInput(name=matched_track_name))
+        return TrackNameResponse(name=matched_track_name)
+    else:
+        # Return the original name if no match found
+        logger.warning(f"No matching track found for stored name '{stored_track_name}'")
+        return TrackNameResponse(name=stored_track_name)
 
 
 @router.post(
@@ -105,11 +125,29 @@ async def get_track_name_endpoint(current_user=Depends(require_auth)):
 async def set_track_name_endpoint(
     track_input: TrackNameInput, current_user=Depends(require_auth)
 ):
-    """Sets the track name."""
+    """Sets the track name with case matching to available tracks."""
     if not track_input.name or not track_input.name.strip():
         raise HTTPException(status_code=400, detail="Track name cannot be empty")
-    updated_track_name = await set_track(track_input)
-    return TrackNameResponse(name=updated_track_name)
+
+    input_name = track_input.name.strip()
+
+    # Try to find a matching track name from available tracks
+    matched_track_name = track_service.find_matching_track_name(input_name)
+
+    if matched_track_name:
+        # Use the matched track name
+        from app.models.models import TrackNameInput
+
+        updated_track_name = await set_track(TrackNameInput(name=matched_track_name))
+        logger.info(
+            f"Set track to matched name: '{input_name}' -> '{matched_track_name}'"
+        )
+        return TrackNameResponse(name=updated_track_name)
+    else:
+        # No match found, but still allow setting (maybe it's a new track)
+        updated_track_name = await set_track(track_input)
+        logger.warning(f"No matching track found for '{input_name}', using as-is")
+        return TrackNameResponse(name=updated_track_name)
 
 
 @router.get("/api/track/data", response_model=TrackData, tags=["Track"])

@@ -958,19 +958,65 @@
         <div class="track-icon">🏁</div>
         <div>Track Map Placeholder</div>
         <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">
-          ${currentTrack ? `No track data available for ${currentTrack}` : 'Track visualization will appear here'}
+          ${currentTrack ? `No track data available for ${formatTrackNameForDisplay(currentTrack)}` : 'Track visualization will appear here'}
         </div>
-      `;
-    }    function updateTrackTitle() {
+      `;    }    
+    
+    function formatTrackNameForDisplay(internalTrackName) {      // Dictionary for special track name mappings
+      const trackDisplayNames = {
+        'abu_dhabi': 'Abu Dhabi',
+        'austria': 'Austria',
+        'bahrain': 'Bahrain',
+        'baku': 'Baku',
+        'brazil': 'Brazil',
+        'canada': 'Canada',
+        'catalunya': 'Catalunya',
+        'hanoi': 'Hanoi',
+        'hungaroring': 'Hungaroring',
+        'imola': 'Imola',
+        'jeddah': 'Jeddah',
+        'las_vegas': 'Las Vegas',
+        'losail': 'Losail',
+        'melbourne': 'Melbourne',
+        'mexico': 'Mexico',
+        'miami': 'Miami',
+        'monaco': 'Monaco',
+        'monza': 'Monza',
+        'paul_ricard': 'Paul Ricard',
+        'sakhir': 'Sakhir',
+        'shanghai': 'Shanghai',
+        'silverstone': 'Silverstone',
+        'singapore': 'Singapore',
+        'sochi': 'Sochi',
+        'spa': 'Spa-Francorchamps',
+        'suzuka': 'Suzuka',
+        'texas': 'Circuit of the Americas',
+        'zandvoort': 'Zandvoort'
+      };
+      
+      // Return mapped name if it exists, otherwise format the track name
+      if (trackDisplayNames[internalTrackName.toLowerCase()]) {
+        return trackDisplayNames[internalTrackName.toLowerCase()];
+      }
+      
+      // Fallback: Convert underscores to spaces and capitalize each word
+      return internalTrackName
+        .replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    }
+    
+    function updateTrackTitle() {
       const titleElement = document.getElementById("trackTitle");
       const trackNameElement = document.getElementById("trackName");
         let titleText = "";
       let trackNameText = "";
       
       if (currentTrack) {
-        const trackDisplayName = currentTrack.toUpperCase();
+        const trackDisplayName = formatTrackNameForDisplay(currentTrack);
         
-        titleText = trackDisplayName;
+        titleText = trackDisplayName.toUpperCase();
         trackNameText = trackDisplayName;
         
         titleElement.textContent = titleText;
