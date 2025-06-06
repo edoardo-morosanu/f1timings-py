@@ -493,9 +493,7 @@
       'McLaren F1 Team': '#FF8700',
       'Stake F1 Team Kick Sauber': '#52E252',
       'DEFAULT': '#FF00FF' // Default color if team not found (Magenta)
-    };
-
-    // Track dictionary with scaling parameters (matching reference implementation)
+    };    // Track dictionary with scaling parameters (matching reference implementation)
     const TRACK_DICTIONARY = {
       'abu_dhabi': { d: 2, x_offset: 800, z_offset: 400 },
       'austria': { d: 2, x_offset: 800, z_offset: 400 },
@@ -520,11 +518,11 @@
       'portimao': { d: 2, x_offset: 800, z_offset: 400 },
       'sakhir': { d: 2, x_offset: 800, z_offset: 400 },
       'shanghai': { d: 2, x_offset: 800, z_offset: 400 },
-      'silverstone': { d: 3.5, x_offset: 800, z_offset: 400 },
+      'silverstone': { d: 3.5, x_offset: 800, z_offset: 400, driver_x_offset: -30, driver_z_offset: 35 },
       'silverstone_short': { d: 2, x_offset: 800, z_offset: 400 },
       'singapore': { d: 2, x_offset: 800, z_offset: 400 },
       'sochi': { d: 2, x_offset: 800, z_offset: 400 },
-      'spa': { d: 3.5, x_offset: 800, z_offset: 400 },
+      'spa': { d: 3.5, x_offset: 800, z_offset: 400, driver_x_offset: -26, driver_z_offset: -15 },
       'suzuka': { d: 2.5, x_offset: 800, z_offset: 400 },
       'suzuka_short': { d: 2, x_offset: 800, z_offset: 400 },
       'texas': { d: 2, x_offset: 800, z_offset: 200 },
@@ -905,8 +903,7 @@
       
       // Redraw the track first (without triggering recursive calls)
       redrawTrackOnly();
-      
-      const { d, x_offset, z_offset } = trackParams;
+        const { d, x_offset, z_offset, driver_x_offset = 0, driver_z_offset = 0 } = trackParams;
       const { minX, minY, scale, centerOffsetX, centerOffsetY } = trackData.transformParams;
         // Draw each driver that has position data
       for (const [driverName, driver] of Object.entries(driversData)) {        // Skip if no position data available
@@ -915,8 +912,9 @@
         }
           // Transform driver coordinates using the same algorithm as the track points
         // Game's X-coordinate maps to canvas X, Game's Z-coordinate maps to canvas Y (same as track.html)
-        const rawX = (driver.world_x / d) + x_offset;
-        const rawY = (driver.world_z / d) + z_offset;
+        // Apply track-specific driver offset corrections
+        const rawX = (driver.world_x / d) + x_offset + driver_x_offset;
+        const rawY = (driver.world_z / d) + z_offset + driver_z_offset;
         
         // Apply the same scaling and centering as used for the track
         const canvasX = (rawX - minX) * scale + centerOffsetX;
