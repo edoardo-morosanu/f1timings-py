@@ -93,8 +93,8 @@ async def delete_lap_time_endpoint(
 
 
 @router.get("/api/track", response_model=TrackNameResponse, tags=["Track"])
-async def get_track_name_endpoint(current_user=Depends(require_auth)):
-    """Gets the currently set track name with case matching to available tracks."""
+async def get_track_name_endpoint():
+    """Gets the currently set track name with case matching to available tracks (no auth required for display)."""
     stored_track_name = await get_track()
 
     if not stored_track_name:
@@ -106,7 +106,7 @@ async def get_track_name_endpoint(current_user=Depends(require_auth)):
     if matched_track_name:
         # Update the stored track name to match the actual available track
         if matched_track_name != stored_track_name:
-            logger.info(
+            logger.debug(
                 f"Updating stored track name from '{stored_track_name}' to '{matched_track_name}'"
             )
             from app.models.models import TrackNameInput
@@ -139,7 +139,7 @@ async def set_track_name_endpoint(
         from app.models.models import TrackNameInput
 
         updated_track_name = await set_track(TrackNameInput(name=matched_track_name))
-        logger.info(
+        logger.debug(
             f"Set track to matched name: '{input_name}' -> '{matched_track_name}'"
         )
         return TrackNameResponse(name=updated_track_name)
@@ -201,7 +201,7 @@ async def export_lap_times_endpoint(current_user=Depends(require_auth)):
     try:
         # Generate CSV content
         filename, csv_content = await generate_csv_content(drivers_copy, current_track)
-        logger.info(f"Export successful. Filename: {filename}")
+        logger.debug(f"Export successful. Filename: {filename}")
 
         # Return CSV as downloadable file
         return Response(
@@ -215,3 +215,35 @@ async def export_lap_times_endpoint(current_user=Depends(require_auth)):
             status_code=500,
             content={"error": f"An unexpected error occurred during export: {e}"},
         )
+
+
+# @router.get("/api/session", tags=["Session"])
+# async def get_session_endpoint():
+#     """Temporary endpoint to get current session data (no auth required)."""
+#     try:
+#         # Import here to avoid circular imports
+#         from app.api.telemetry import enhanced_session_data_store
+        
+#         async with state_lock:
+#             session_data = {
+#                 "track_name": app_data.track_name,
+#                 "drivers_count": len(app_data.drivers),
+#                 "drivers": {
+#                     name: {
+#                         "name": driver.name,
+#                         "team": driver.team,
+#                         "fastest_lap": driver.fastest_lap,
+#                         "position": driver.position,
+#                         "car_number": driver.car_number
+#                     }
+#                     for name, driver in app_data.drivers.items()
+#                 },
+#                 "session_info": enhanced_session_data_store if enhanced_session_data_store else None
+#             }
+        
+#         logger.debug("Session data retrieved successfully")
+#         return session_data
+        
+#     except Exception as e:
+#         logger.exception(f"Error retrieving session data: {e}")
+#         raise HTTPException(status_code=500, detail="Failed to retrieve session data")
