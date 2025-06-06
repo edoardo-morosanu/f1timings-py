@@ -161,7 +161,7 @@ class TrackService:
                 # Check if the actual track exists in available tracks
                 for track in available_tracks:
                     if track.lower() == actual_track.lower():
-                        logger.info(
+                        logger.debug(
                             f"Alias match found for '{input_track_name}' -> '{alias}' -> '{track}'"
                         )
                         return track
@@ -169,7 +169,7 @@ class TrackService:
         # Second, try exact match (case-insensitive)
         for track in available_tracks:
             if track.lower() == input_normalized:
-                logger.info(f"Exact match found for '{input_track_name}': '{track}'")
+                logger.debug(f"Exact match found for '{input_track_name}': '{track}'")
                 return track
 
         # Third, try partial matching - check if input is contained in any track name
@@ -179,7 +179,7 @@ class TrackService:
                 input_normalized in track_normalized
                 or track_normalized in input_normalized
             ):
-                logger.info(f"Partial match found for '{input_track_name}': '{track}'")
+                logger.debug(f"Partial match found for '{input_track_name}': '{track}'")
                 return track
 
         # Fourth, try matching without common prefixes/suffixes
@@ -200,7 +200,7 @@ class TrackService:
                 .strip("_")
             )
             if cleaned_input == cleaned_track:
-                logger.info(f"Cleaned match found for '{input_track_name}': '{track}'")
+                logger.debug(f"Cleaned match found for '{input_track_name}': '{track}'")
                 return track
 
         logger.warning(
@@ -228,7 +228,7 @@ class TrackService:
         for pattern in patterns:
             file_path = TRACKS_DIR / pattern
             if file_path.exists():
-                logger.info(f"Found track file for '{track_name}': {file_path}")
+                logger.debug(f"Found track file for '{track_name}': {file_path}")
                 return file_path
 
         logger.warning(
@@ -291,7 +291,7 @@ class TrackService:
                 name=track_name, track_info=track_info, points=points
             )
 
-            logger.info(
+            logger.debug(
                 f"Successfully parsed track '{track_name}' with {len(points)} points"
             )
             return track_data
@@ -319,14 +319,14 @@ class TrackService:
         if track_data:
             # Cache the result
             self.track_cache[track_name] = track_data
-            logger.info(f"Cached track data for '{track_name}'")
+            logger.debug(f"Cached track data for '{track_name}'")
 
         return track_data
 
     def clear_cache(self):
         """Clear the track data cache."""
         self.track_cache.clear()
-        logger.info("Track data cache cleared")
+        logger.debug("Track data cache cleared")
 
 
 # Global track service instance

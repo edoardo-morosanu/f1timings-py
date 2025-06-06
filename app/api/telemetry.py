@@ -4,29 +4,18 @@ import socket
 import threading
 import time
 import logging
-from typing import Optional, Dict, Any, List
-
-# Configure basic logging
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
-)  # Changed to DEBUG
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)  # Ensure DEBUG logs from this module are shown
-
-# Attempt to silence the f1-24-telemetry library's own logger (can be re-enabled if too noisy)
-# logging.getLogger('f1_24_telemetry').setLevel(logging.ERROR)
-
-# Attempt to silence Uvicorn's default loggers (can be re-enabled if too noisy)
-# logging.getLogger('uvicorn.error').setLevel(logging.CRITICAL)
-# logging.getLogger('uvicorn.access').setLevel(logging.INFO) # Access logs can be useful
-# logging.getLogger('uvicorn').setLevel(logging.INFO)
-
-import os
 import traceback
+from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from app.models.models import DriverResponse, LapTime  # Moved import here
+from app.models.models import DriverResponse, LapTime
+
+# Load environment variables
+load_dotenv()
+
+# Get logger - logging is configured in main.py
+logger = logging.getLogger(__name__)
 
 
 # --- Pydantic Models for Live Telemetry Endpoint ---
@@ -41,6 +30,10 @@ class LiveDriverData(BaseModel):
 class SessionInfo(BaseModel):
     trackId: Optional[int] = None
     gamePaused: Optional[bool] = None
+    sessionType: Optional[int] = None
+    sessionTypeName: Optional[str] = None
+    sessionTimeLeft: Optional[int] = None
+    sessionDuration: Optional[int] = None
 
 
 class LiveTelemetryResponse(BaseModel):
@@ -50,8 +43,6 @@ class LiveTelemetryResponse(BaseModel):
 
 
 # Load environment variables from .env file
-load_dotenv()
-
 telemetry_router = APIRouter()  # Moved here
 
 # --- Team ID to Name Mapping ---
@@ -72,6 +63,67 @@ TEAM_ID_MAP = {
     # For simplicity, focusing on the main constructor teams.
     255: "Unknown Team",  # Often used for no team or invalid
 }
+
+
+# --- Session Type Constants (F1 24) ---
+SESSION_TYPE_MAP = {
+    0: "Unknown",
+    1: "Practice 1",
+    2: "Practice 2",
+    3: "Practice 3",
+    4: "Short Practice",
+    5: "Qualifying 1",
+    6: "Qualifying 2",
+    7: "Qualifying 3",
+    8: "Short Qualifying",
+    9: "One Shot Qualifying",
+    10: "Race",
+    11: "Race 2",
+    12: "Race 3",
+    13: "Time Trial",
+}
+
+# --- Packet Filtering Configuration ---
+# Essential packets for performance optimization
+ESSENTIAL_PACKET_IDS = {
+    0,  # MotionData - car positions
+    1,  # SessionData - session info and track
+    2,  # LapData - lap times and sector data
+    4,  # ParticipantsData - driver names and teams
+    7,  # CarStatusData - car status information
+}
+
+# Optional packets that can be enabled for detailed telemetry
+OPTIONAL_PACKET_IDS = {
+    3,  # EventData - session events
+    5,  # CarSetupData - car setup information
+    6,  # CarTelemetryData - detailed car telemetry
+    8,  # CarDamageData - car damage information
+    9,  # SessionHistoryData - session history
+    10,  # TyreSetData - tyre set information
+    11,  # MotionExData - extended motion data
+    12,  # CarStatusDataEx - extended car status
+    13,  # FinalClassificationData - final classification
+    14,  # LobbyInfoData - lobby information
+}
+
+# Performance filtering - set to True to only process essential packets
+ENABLE_PACKET_FILTERING = True
+
+# Session data enhancement - detailed session information storage
+enhanced_session_data_store: dict = {}
+
+
+def get_session_type_name(session_type_id: int) -> str:
+    """Convert session type ID to readable name"""
+    return SESSION_TYPE_MAP.get(session_type_id, f"Unknown ({session_type_id})")
+
+
+def should_process_packet(packet_id: int) -> bool:
+    """Determine if a packet should be processed based on filtering settings"""
+    if not ENABLE_PACKET_FILTERING:
+        return True
+    return packet_id in ESSENTIAL_PACKET_IDS
 
 
 # --- Utility Functions ---
@@ -201,10 +253,10 @@ async def get_live_driver_data_for_api() -> Dict[str, DriverResponse]:
             "[get_live_driver_data_for_api] After loop, drivers_api_response is unexpectedly empty despite active_drivers_count > 0."
         )
     elif active_drivers_count > 0:
-        logger.info(
+        logger.debug(
             f"[get_live_driver_data_for_api] After loop. Keys in drivers_api_response: {list(drivers_api_response.keys()) if drivers_api_response else 'Empty dict'}"
         )
-        logger.info(
+        logger.debug(
             f"[get_live_driver_data_for_api] Compiled data for {len(drivers_api_response)} drivers. Expected to process up to {min(active_drivers_count, len(participant_data_store))} entries."
         )
 
@@ -227,7 +279,7 @@ async def get_live_driver_data_for_api() -> Dict[str, DriverResponse]:
 
 async def get_full_live_telemetry_data() -> LiveTelemetryResponse:
     """Assembles full live telemetry data including driver positions and session info."""
-    global participant_data_store, latest_car_positions, session_data_store, active_drivers_count, TEAM_ID_MAP
+    global participant_data_store, latest_car_positions, session_data_store, enhanced_session_data_store, active_drivers_count, TEAM_ID_MAP
 
     live_drivers_list: List[LiveDriverData] = []
 
@@ -277,12 +329,23 @@ async def get_full_live_telemetry_data() -> LiveTelemetryResponse:
     else:
         logger.debug(
             "get_full_live_telemetry_data: Participant data store not ready or no active drivers."
-        )    
-        current_session_info = None
-    if isinstance(session_data_store, dict):
+        )
+
+    current_session_info = None
+    # Use enhanced session data if available, fallback to basic session data
+    session_source = (
+        enhanced_session_data_store
+        if enhanced_session_data_store
+        else session_data_store
+    )
+    if isinstance(session_source, dict):
         current_session_info = SessionInfo(
-            trackId=session_data_store.get("trackId"),
-            gamePaused=bool(session_data_store.get("gamePaused", 0)),  # Ensure boolean
+            trackId=session_source.get("trackId"),
+            gamePaused=bool(session_source.get("gamePaused", 0)),
+            sessionType=session_source.get("sessionType"),
+            sessionTypeName=session_source.get("sessionTypeName"),
+            sessionTimeLeft=session_source.get("sessionTimeLeft"),
+            sessionDuration=session_source.get("sessionDuration"),
         )
     else:
         logger.debug(
@@ -292,8 +355,11 @@ async def get_full_live_telemetry_data() -> LiveTelemetryResponse:
     final_active_drivers_count = (
         active_drivers_count if isinstance(active_drivers_count, int) else 0
     )
-    logger.info(
-        f"get_full_live_telemetry_data: Compiled data for {len(live_drivers_list)} drivers. Session trackId: {current_session_info.trackId if current_session_info else 'N/A'}. Active drivers: {final_active_drivers_count}"
+    logger.debug(
+        f"get_full_live_telemetry_data: Compiled data for {len(live_drivers_list)} drivers. "
+        f"Session trackId: {current_session_info.trackId if current_session_info else 'N/A'}, "
+        f"Session type: {current_session_info.sessionTypeName if current_session_info else 'N/A'}. "
+        f"Active drivers: {final_active_drivers_count}"
     )
 
     return LiveTelemetryResponse(
@@ -332,11 +398,16 @@ listener_host: Optional[str] = None
 listener_error: Optional[str] = None
 active_drivers_count = 0  # Updated by participant packets
 
-# New global variables for detailed telemetry data
+# Enhanced telemetry data stores
 latest_car_positions: list = []  # Will store dicts of car positions
 participant_data_store: list = []  # Will store dicts of participant info
-session_data_store: dict = {}  # Will store session info
+session_data_store: dict = {}  # Will store basic session info
+enhanced_session_data_store: dict = {}  # Will store enhanced session info with types
 lap_data_store: list = []  # To store lap data for each car
+
+# Performance tracking
+packets_processed_count = 0
+packets_filtered_count = 0
 
 
 class TelemetryStatus(BaseModel):
@@ -347,10 +418,18 @@ class TelemetryStatus(BaseModel):
     error: Optional[str] = None
 
 
+class TelemetryStats(BaseModel):
+    packets_processed: int = 0
+    packets_filtered: int = 0
+    filtering_enabled: bool = True
+    essential_packets: List[int] = []
+    optional_packets: List[int] = []
+
+
 class LiveDataResponse(BaseModel):
     session: Optional[dict] = None
     participants: Optional[list] = None  # List of participant data dicts
-    positions: Optional[list] = None  # List of car position dicts
+    positions: Optional[list] = None  # List of car lap data dicts
     laps: Optional[list] = None  # List of car lap data dicts
     active_drivers: int
     is_running: bool
@@ -361,6 +440,14 @@ class StartResponse(BaseModel):
     message: str
     host: str
     port: int
+
+
+class TelemetryStats(BaseModel):
+    packets_processed: int = 0
+    packets_filtered: int = 0
+    filtering_enabled: bool = True
+    essential_packets: List[int] = []
+    optional_packets: List[int] = []
 
 
 def get_local_ip():
@@ -382,8 +469,8 @@ def get_local_ip():
 
 
 def telemetry_listener_worker(host: str, port: int, stop_event: threading.Event):
-    global listener_error, active_drivers_count
-    global latest_car_positions, participant_data_store, session_data_store, lap_data_store
+    global listener_error, active_drivers_count, packets_processed_count, packets_filtered_count
+    global latest_car_positions, participant_data_store, session_data_store, enhanced_session_data_store, lap_data_store
 
     listener_instance = None
     try:
@@ -418,10 +505,18 @@ def telemetry_listener_worker(host: str, port: int, stop_event: threading.Event)
                     packet_id = packet.header.packet_id
                     logger.debug(
                         f"Received packet_id: {packet_id} (type: {type(packet_id)})"
-                    )
+                    )  # Packet filtering for performance optimization
+                    if not should_process_packet(packet_id):
+                        packets_filtered_count += 1
+                        logger.debug(
+                            f"Packet ID {packet_id} filtered out for performance"
+                        )
+                        continue
+
+                    packets_processed_count += 1
 
                     if packet_id == 0:  # MotionData
-                        logger.info(
+                        logger.debug(
                             f"Processing MotionData (ID 0). Cars: {len(packet.car_motion_data) if hasattr(packet, 'car_motion_data') else 'N/A'}"
                         )
                         # active_drivers_count = sum(1 for car_motion in packet.car_motion_data if car_motion.world_position_x != 0 or car_motion.world_position_y != 0 or car_motion.world_position_z != 0) # This is not the authoritative source for active_drivers_count
@@ -438,111 +533,68 @@ def telemetry_listener_worker(host: str, port: int, stop_event: threading.Event)
                                     "pitch": car_motion.pitch,
                                     "roll": car_motion.roll,
                                 }
+
                         logger.debug(
                             f"Updated latest_car_positions for {len(packet.car_motion_data) if hasattr(packet, 'car_motion_data') else 'N/A'} cars. First car X: {latest_car_positions[0].get('worldPositionX') if latest_car_positions and latest_car_positions[0] else 'N/A'}"
                         )
-
                     elif packet_id == 1:  # SessionData
-                        logger.info(
+                        logger.debug(
                             f"Processing SessionData (ID 1). Track ID: {packet.track_id if hasattr(packet, 'track_id') else 'N/A'}"
                         )
+
+                        # Update basic session data store (backwards compatibility)
                         session_data_store.update(
                             {
                                 "trackId": packet.track_id,
                                 "networkGame": packet.network_game,
                                 "gamePaused": packet.game_paused,
                                 "sessionType": packet.session_type,
-                                "sessionLinkIdentifier": packet.session_link_identifier,  # Added missing snake_case conversion
+                                "sessionLinkIdentifier": packet.session_link_identifier,
                                 "sessionTimeLeft": packet.session_time_left,
                                 "sessionDuration": packet.session_duration,
                                 "pitSpeedLimit": packet.pit_speed_limit,
                             }
                         )
+
+                        # Update enhanced session data store with session type details
+                        session_type_name = get_session_type_name(packet.session_type)
+                        enhanced_session_data_store.update(
+                            {
+                                "trackId": packet.track_id,
+                                "networkGame": packet.network_game,
+                                "gamePaused": packet.game_paused,
+                                "sessionType": packet.session_type,
+                                "sessionTypeName": session_type_name,
+                                "sessionTimeLeft": packet.session_time_left,
+                                "sessionDuration": packet.session_duration,
+                                "pitSpeedLimit": packet.pit_speed_limit,
+                                "sessionLinkIdentifier": packet.session_link_identifier,
+                                # Additional enhanced fields
+                                "sessionTypeCategory": (
+                                    "Practice"
+                                    if packet.session_type in [1, 2, 3, 4]
+                                    else (
+                                        "Qualifying"
+                                        if packet.session_type in [5, 6, 7, 8, 9]
+                                        else (
+                                            "Race"
+                                            if packet.session_type in [10, 11, 12]
+                                            else "Other"
+                                        )
+                                    )
+                                ),
+                                "isRaceSession": packet.session_type in [10, 11, 12],
+                                "isPracticeSession": packet.session_type
+                                in [1, 2, 3, 4],
+                                "isQualifyingSession": packet.session_type
+                                in [5, 6, 7, 8, 9],
+                            }
+                        )
+
                         logger.debug(
-                            f"Updated session_data_store. Track ID: {session_data_store.get('trackId')}, Session Type: {session_data_store.get('sessionType')}"
+                            f"Updated session data stores. Track ID: {session_data_store.get('trackId')}, "
+                            f"Session Type: {session_data_store.get('sessionType')} ({session_type_name})"
                         )
-
-                    elif packet_id == 2:  # LapData
-                        logger.info(
-                            f"Processing LapData (ID 2). Cars: {len(packet.lap_data) if hasattr(packet, 'lap_data') else 'N/A'}"
-                        )
-                        if hasattr(packet, "lap_data"):
-                            # Ensure lap_data_store is initialized correctly
-                            if (
-                                not isinstance(lap_data_store, list)
-                                or len(lap_data_store) != 22
-                            ):
-                                logger.warning(
-                                    "lap_data_store is not a list of 22 elements. Re-initializing."
-                                )
-                                lap_data_store[:] = [{} for _ in range(22)]
-
-                            for i, car_lap_data in enumerate(packet.lap_data):
-                                if i < 22:  # Process up to 22 cars
-                                    # Combine sector time parts if necessary (assuming library provides them split)
-                                    # For f1-24-telemetry, it's usually direct attributes like sector1_time_in_ms
-                                    lap_data_store[i] = {
-                                        "lastLapTimeInMS": getattr(
-                                            car_lap_data, "last_lap_time_in_ms", 0
-                                        ),
-                                        "currentLapTimeInMS": getattr(
-                                            car_lap_data, "current_lap_time_in_ms", 0
-                                        ),
-                                        "sector1TimeInMS": getattr(
-                                            car_lap_data, "sector1_time_in_ms", 0
-                                        ),  # Direct attribute
-                                        "sector2TimeInMS": getattr(
-                                            car_lap_data, "sector2_time_in_ms", 0
-                                        ),  # Direct attribute
-                                        "lapDistance": getattr(
-                                            car_lap_data, "lap_distance", 0.0
-                                        ),
-                                        "totalDistance": getattr(
-                                            car_lap_data, "total_distance", 0.0
-                                        ),
-                                        "safetyCarDelta": getattr(
-                                            car_lap_data, "safety_car_delta", 0.0
-                                        ),
-                                        "carPosition": getattr(
-                                            car_lap_data, "car_position", 0
-                                        ),
-                                        "currentLapNum": getattr(
-                                            car_lap_data, "current_lap_num", 0
-                                        ),
-                                        "pitStatus": getattr(
-                                            car_lap_data, "pit_status", 0
-                                        ),
-                                        "numPitStops": getattr(
-                                            car_lap_data, "num_pit_stops", 0
-                                        ),
-                                        "sector": getattr(car_lap_data, "sector", 0),
-                                        "currentLapInvalid": getattr(
-                                            car_lap_data, "current_lap_invalid", 0
-                                        ),
-                                        "penalties": getattr(
-                                            car_lap_data, "penalties", 0
-                                        ),
-                                        "totalWarnings": getattr(
-                                            car_lap_data, "total_warnings", 0
-                                        ),
-                                        "cornerCuttingWarnings": getattr(
-                                            car_lap_data, "corner_cutting_warnings", 0
-                                        ),
-                                        "gridPosition": getattr(
-                                            car_lap_data, "grid_position", 0
-                                        ),
-                                        "driverStatus": getattr(
-                                            car_lap_data, "driver_status", 0
-                                        ),
-                                        "resultStatus": getattr(
-                                            car_lap_data, "result_status", 0
-                                        ),
-                                        # Best lap time is not in this packet per F1 24 spec.
-                                        # If needed, it must be calculated and stored separately by the application.
-                                    }
-                            logger.debug(
-                                f"Updated lap_data_store for {len(packet.lap_data)} cars. First car last lap: {lap_data_store[0].get('lastLapTimeInMS') if lap_data_store and lap_data_store[0] else 'N/A'}"
-                            )
 
                     elif packet_id == 4:  # ParticipantsData
                         num_cars_to_log = (
@@ -551,10 +603,9 @@ def telemetry_listener_worker(host: str, port: int, stop_event: threading.Event)
                             else (
                                 str(packet.m_numActiveCars)
                                 if hasattr(packet, "m_numActiveCars")
-                                else "N/A"
-                            )
+                                else "N/A"                            )
                         )
-                        logger.info(
+                        logger.debug(
                             f"Processing ParticipantsData (ID 4). Num Active Cars: {num_cars_to_log}"
                         )
                         if hasattr(
@@ -682,7 +733,7 @@ def telemetry_listener_worker(host: str, port: int, stop_event: threading.Event)
                                 if i not in processed_indices and i >= num_to_process:
                                     participant_data_store[i] = {}
 
-                        logger.info(
+                        logger.debug(
                             f"Participant data store updated. Active drivers: {active_drivers_count}. Processed up to {min(num_to_process, len(packet.participants), 22)} participants."
                         )
                         if (
@@ -696,10 +747,9 @@ def telemetry_listener_worker(host: str, port: int, stop_event: threading.Event)
                         else:
                             logger.debug(
                                 "Participant_data_store is empty or first element is empty after update."
-                            )
-
+                            )                    
                     elif packet_id == 2:  # LapData
-                        logger.info(
+                        logger.debug(
                             f"Processing LapData (ID 2). Cars: {len(packet.lap_data) if hasattr(packet, 'lap_data') else 'N/A'}"
                         )
                         for i, car_lap in enumerate(packet.lap_data):
@@ -858,17 +908,64 @@ def telemetry_listener_worker(host: str, port: int, stop_event: threading.Event)
                             f"Updated lap_data_store for {len(packet.lap_data) if hasattr(packet, 'lap_data') else 'N/A'} cars."
                         )
                     elif packet_id == 7:  # CarStatusData
-                        # logger.info("CarStatus Packet Received")
-                        # Process CarStatusData if needed. For now, we are not storing it globally.
-                        logger.info(
+                        logger.debug(
                             f"Processing CarStatusData (ID 7). Cars: {len(packet.car_status_data) if hasattr(packet, 'car_status_data') else 'N/A'}"
                         )
-                        # Example: if hasattr(packet, 'car_status_data'):
-                        #     for i, status_data in enumerate(packet.car_status_data):
-                        #         if i < 22:
-                        #             # car_status_store[i] = { ... extract fields ... }
-                        #             pass # Placeholder
-                        pass
+                        if hasattr(packet, "car_status_data"):
+                            # Ensure car_status_store is initialized correctly
+                            # For now, we'll add basic car status to participant data if needed
+                            for i, status_data in enumerate(packet.car_status_data):
+                                if i < 22 and i < len(participant_data_store):
+                                    # Add some basic status info to participant data
+                                    if participant_data_store[i]:
+                                        participant_data_store[i].update(
+                                            {
+                                                "fuelMix": getattr(
+                                                    status_data, "fuel_mix", 0
+                                                ),
+                                                "frontLeftWingDamage": getattr(
+                                                    status_data,
+                                                    "front_left_wing_damage",
+                                                    0,
+                                                ),
+                                                "frontRightWingDamage": getattr(
+                                                    status_data,
+                                                    "front_right_wing_damage",
+                                                    0,
+                                                ),
+                                                "rearWingDamage": getattr(
+                                                    status_data, "rear_wing_damage", 0
+                                                ),
+                                                "drsAllowed": getattr(
+                                                    status_data, "drs_allowed", 0
+                                                ),
+                                                "tyresWear": [
+                                                    getattr(
+                                                        status_data, "tyres_wear_rl", 0
+                                                    ),
+                                                    getattr(
+                                                        status_data, "tyres_wear_rr", 0
+                                                    ),
+                                                    getattr(
+                                                        status_data, "tyres_wear_fl", 0
+                                                    ),
+                                                    getattr(
+                                                        status_data, "tyres_wear_fr", 0
+                                                    ),
+                                                ],
+                                                "tyreCompound": getattr(
+                                                    status_data,
+                                                    "actual_tyre_compound",
+                                                    0,
+                                                ),
+                                                "vehicleFiaFlags": getattr(
+                                                    status_data, "vehicle_fia_flags", 0
+                                                ),
+                                            }
+                                        )
+                            logger.debug(
+                                f"Updated car status data for {len(packet.car_status_data)} cars"
+                            )
                 else:
                     logger.warning(
                         f"Received packet (type: {type(packet)}) but it has no 'header' attribute. Cannot determine packet_id."
@@ -908,7 +1005,8 @@ def telemetry_listener_worker(host: str, port: int, stop_event: threading.Event)
 
 def _clear_listener_state():
     global listener_thread, listener_stop_event, listener_port, listener_host, listener_error, active_drivers_count
-    global latest_car_positions, participant_data_store, session_data_store, lap_data_store
+    global latest_car_positions, participant_data_store, session_data_store, enhanced_session_data_store, lap_data_store
+    global packets_processed_count, packets_filtered_count
 
     listener_thread = None
     listener_stop_event = None
@@ -917,11 +1015,16 @@ def _clear_listener_state():
     listener_error = None
     active_drivers_count = 0
 
-    # Reset new globals
+    # Reset telemetry data stores
     latest_car_positions = [{} for _ in range(22)]
     participant_data_store = [{} for _ in range(22)]
     session_data_store = {}
+    enhanced_session_data_store = {}
     lap_data_store = [{} for _ in range(22)]
+
+    # Reset performance counters
+    packets_processed_count = 0
+    packets_filtered_count = 0
 
 
 @telemetry_router.post("/start", response_model=StartResponse)
@@ -1044,7 +1147,7 @@ async def get_telemetry_status():
 @telemetry_router.get("/live_data")
 async def get_live_telemetry_data():
     global listener_thread, active_drivers_count, listener_error, listener_status_message, latest_car_positions, participant_data_store, session_data_store, lap_data_store
-    logger.info(f"API /live_data called. Active drivers count: {active_drivers_count}")
+    logger.debug(f"API /live_data called. Active drivers count: {active_drivers_count}")
     logger.debug(
         f"Current participant_data_store (first 2): {dict(list(participant_data_store.items())[:2])}"
     )
@@ -1108,13 +1211,46 @@ async def get_live_telemetry_data():
         "is_running": is_running_status,
         "error": listener_error if listener_error else None,
     }
-    logger.info(
+    logger.debug(
         f"API /live_data returning {len(drivers_combined)} drivers. Listener status: {is_running_status}"
     )
     logger.debug(f"API /live_data full response: {response_data}")
     from fastapi.responses import JSONResponse
 
     return JSONResponse(content=response_data)
+
+
+@telemetry_router.get("/stats", response_model=TelemetryStats)
+async def get_telemetry_stats():
+    """Get telemetry performance statistics and packet filtering information."""
+    global packets_processed_count, packets_filtered_count
+
+    return TelemetryStats(
+        packets_processed=packets_processed_count,
+        packets_filtered=packets_filtered_count,
+        filtering_enabled=ENABLE_PACKET_FILTERING,
+        essential_packets=list(ESSENTIAL_PACKET_IDS),
+        optional_packets=list(OPTIONAL_PACKET_IDS),
+    )
+
+
+@telemetry_router.get("/session", response_model=dict)
+async def get_enhanced_session_data():
+    """Get enhanced session data including session type information."""
+    global enhanced_session_data_store, session_data_store
+
+    # Return enhanced session data if available, otherwise basic session data
+    session_data = (
+        enhanced_session_data_store
+        if enhanced_session_data_store
+        else session_data_store
+    )
+
+    return {
+        "session_data": session_data,
+        "session_types": SESSION_TYPE_MAP,
+        "is_enhanced": bool(enhanced_session_data_store),
+    }
 
 
 # To integrate into your main FastAPI application (e.g., in main.py or app.py):
