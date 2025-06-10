@@ -498,8 +498,10 @@
       'abu_dhabi': { d: 2, x_offset: 800, z_offset: 400 },
       'austria': { d: 2, x_offset: 800, z_offset: 400 },
       'bahrain': { d: 2, x_offset: 800, z_offset: 400 },
-      'baku': { d: 3, x_offset: 800, z_offset: 400 },
+      'Bahrain': { d: 2, x_offset: 800, z_offset: 400 },
+      'baku': { d: 3, x_offset: 800, z_offset: 400 },      
       'brazil': { d: 2, x_offset: 800, z_offset: 300 },
+      'canada': { d: 3, x_offset: 800, z_offset: 200,  driver_x_offset: -40, driver_z_offset: -170 },
       'catalunya': { d: 2.5, x_offset: 800, z_offset: 400 },
       'hanoi': { d: 2.5, x_offset: 800, z_offset: 400 },
       'hockenheim': { d: 2, x_offset: 800, z_offset: 400 },
@@ -507,6 +509,7 @@
       'imola': { d: 2, x_offset: 800, z_offset: 400 },
       'jeddah': { d: 4, x_offset: 800, z_offset: 400 },
       'las_vegas': { d: 4, x_offset: 800, z_offset: 400 },
+      'Las_Vegas': { d: 4, x_offset: 800, z_offset: 400 },
       'losail': { d: 2.5, x_offset: 800, z_offset: 400 },
       'melbourne': { d: 3.5, x_offset: 800, z_offset: 400 },
       'mexico': { d: 2.5, x_offset: 800, z_offset: 600 },
@@ -518,16 +521,17 @@
       'portimao': { d: 2, x_offset: 800, z_offset: 400 },
       'sakhir': { d: 2, x_offset: 800, z_offset: 400 },
       'shanghai': { d: 2, x_offset: 800, z_offset: 400 },
-      'silverstone': { d: 3.5, x_offset: 800, z_offset: 400, driver_x_offset: -30, driver_z_offset: 35 },
+      'silverstone': { d: 3.5, x_offset: 800, z_offset: 400, driver_x_offset: 0, driver_z_offset: 0 },
       'silverstone_short': { d: 2, x_offset: 800, z_offset: 400 },
-      'singapore': { d: 2, x_offset: 800, z_offset: 400 },
+      'singapore': { d: 1, x_offset: 800, z_offset: 400,  driver_x_offset: -8, driver_z_offset: -26 },
       'sochi': { d: 2, x_offset: 800, z_offset: 400 },
-      'spa': { d: 3.5, x_offset: 800, z_offset: 400, driver_x_offset: -26, driver_z_offset: -15 },
+      'spa': { d: 1.5, x_offset: 800, z_offset: 400, driver_x_offset: 15, driver_z_offset: -5 },
       'suzuka': { d: 2.5, x_offset: 800, z_offset: 400 },
       'suzuka_short': { d: 2, x_offset: 800, z_offset: 400 },
       'texas': { d: 2, x_offset: 800, z_offset: 200 },
       'texas_short': { d: 2, x_offset: 800, z_offset: 400 },
-      'zandvoort': { d: 2, x_offset: 800, z_offset: 400 }    };
+      'zandvoort': { d: 2, x_offset: 800, z_offset: 400 }    
+    };
     
     let fetchDataInterval = null;
     const FETCH_INTERVAL_MS = 16.67;
@@ -775,7 +779,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       // Set line style - simple white line (thicker for better visibility)
-      ctx.lineWidth = 4;
+      ctx.lineWidth = currentTrack.toLowerCase() === 'singapore' || 'spa' ? 7 : 4;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = '#FFFFFF';
@@ -849,12 +853,11 @@
       }
         const { d, x_offset, z_offset } = trackParams;
       const points = trackData.points;
-      
-      // Clear canvas completely
+        // Clear canvas completely
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       // Set line style - simple white line (thicker for better visibility)
-      ctx.lineWidth = 4;
+      ctx.lineWidth = currentTrack.toLowerCase() === 'singapore' || 'spa' ? 7 : 4;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = '#FFFFFF';
@@ -931,6 +934,7 @@
         
         // Draw white border around the dot
         ctx.strokeStyle = '#FFFFFF';
+        // if track is singapore, use a 6 track width, otehrwise 4
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(canvasX, canvasY, DRIVER_DOT_RADIUS, 0, 2 * Math.PI);
