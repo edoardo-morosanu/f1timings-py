@@ -11,7 +11,7 @@ from app.models.models import (
     TrackNameInput,
     TrackNameResponse,
     TrackData,
-    # driver_to_response, # No longer needed here, telemetry helper returns DriverResponse
+    driver_to_response,  # Re-enabled for converting manual lap times
 )
 from app.services.crud import (
     # get_all_drivers, # No longer used by this endpoint
@@ -37,6 +37,30 @@ router = APIRouter()
 @router.get("/api/drivers", response_model=Dict[str, DriverResponse], tags=["Drivers"])
 async def get_drivers_endpoint():
     """Gets all current drivers and their live telemetry data (name, team, last lap time)."""
+    # FUTURE: Fetch live driver data compiled from telemetry stores (for fastest lap times from game)
+    # drivers_response = await get_live_driver_data_for_api()
+    # return drivers_response
+
+    # For now, return manually added times from admin panel
+    async with state_lock:
+        drivers_copy = {
+            name: driver.model_copy(deep=True)
+            for name, driver in app_data.drivers.items()
+        }
+
+    # Convert internal driver objects to API response format
+    drivers_response = {
+        name: driver_to_response(driver) for name, driver in drivers_copy.items()
+    }
+
+    return drivers_response
+
+
+@router.get(
+    "/api/drivers/live", response_model=Dict[str, DriverResponse], tags=["Drivers"]
+)
+async def get_live_drivers_endpoint():
+    """Gets live telemetry data from the game (positions, teams, etc.) for track visualization."""
     # Fetch live driver data compiled from telemetry stores
     drivers_response = await get_live_driver_data_for_api()
     return drivers_response
@@ -223,7 +247,7 @@ async def export_lap_times_endpoint(current_user=Depends(require_auth)):
 #     try:
 #         # Import here to avoid circular imports
 #         from app.api.telemetry import enhanced_session_data_store
-        
+
 #         async with state_lock:
 #             session_data = {
 #                 "track_name": app_data.track_name,
@@ -240,10 +264,10 @@ async def export_lap_times_endpoint(current_user=Depends(require_auth)):
 #                 },
 #                 "session_info": enhanced_session_data_store if enhanced_session_data_store else None
 #             }
-        
+
 #         logger.debug("Session data retrieved successfully")
 #         return session_data
-        
+
 #     except Exception as e:
 #         logger.exception(f"Error retrieving session data: {e}")
 #         raise HTTPException(status_code=500, detail="Failed to retrieve session data")

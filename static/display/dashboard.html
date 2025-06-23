@@ -435,10 +435,10 @@
     </header>
 
     <!-- Leaderboard -->
-    <div class="leaderboard">
+    <div class="leaderboard">      
       <div class="leaderboard-header">
-        <div class="leaderboard-title">Live Timing</div>
-        <div class="leaderboard-subtitle">Fastest Lap Times</div>
+        <div class="leaderboard-title">Lap Times</div>
+        <div class="leaderboard-subtitle">Admin Panel Times</div>
       </div>
       <div class="leaderboard-content" id="leaderboardContent">
         <div class="no-data">
@@ -460,7 +460,7 @@
           <div class="fastest-lap-time" id="fastestLapTime">--:--.---</div>
         </div>
       </div>      <div class="track-map">
-        <canvas id="trackCanvas" width="900" height="600" style="display: none;"></canvas>
+        <canvas id="trackCanvas" width="1200" height="800" style="display: none;"></canvas>
         <div class="track-placeholder" id="trackPlaceholder">
           <div class="track-icon">🏁</div>
           <div>Track Map Placeholder</div>
@@ -470,15 +470,16 @@
         </div>
       </div>
     </div>
-  </div>  <script>
-    // Global variables
+  </div>  <script>    // Global variables
     let currentTrack = "";
     let trackData = null;
     let allDriverData = {};
-    let socket;
-    let canvas, ctx;
+    let socket;    let canvas, ctx;
     let driverMarkers = {};
-    let currentDriverPositions = {};    let currentDriverInfo = {};
+    let currentDriverPositions = {};
+    let previousDriverPositions = {}; // Track previous positions for selective clearing
+    let currentDriverInfo = {};
+    let trackRendered = false; // Flag to track if track background is rendered
     
     // Team colors for driver markers (matching backend)
     const TEAM_COLORS = {
@@ -495,43 +496,46 @@
       'DEFAULT': '#FF00FF' // Default color if team not found (Magenta)
     };    // Track dictionary with scaling parameters (matching reference implementation)
     const TRACK_DICTIONARY = {
-      'abu_dhabi': { d: 2, x_offset: 800, z_offset: 400 },
-      'austria': { d: 2, x_offset: 800, z_offset: 400 },
+      'abu_dhabi': { d: 2, x_offset: 800, z_offset: 400, driver_x_offset: -115, driver_z_offset: 45 }, // abu dhabi shouldn't be rotated (fixed in backend)
+      'austria': { d: 2, x_offset: 800, z_offset: 400, driver_x_offset: -52, driver_z_offset: 48 },
       'bahrain': { d: 2, x_offset: 800, z_offset: 400 },
-      'baku': { d: 3, x_offset: 800, z_offset: 400 },
-      'brazil': { d: 2, x_offset: 800, z_offset: 300 },
-      'catalunya': { d: 2.5, x_offset: 800, z_offset: 400 },
+      'Bahrain': { d: 2, x_offset: 800, z_offset: 400 },
+      'baku': { d: 3, x_offset: 800, z_offset: 400, driver_x_offset: 50, driver_z_offset: 52 }, // Baku not perfect yet     
+      'brazil': { d: 2, x_offset: 800, z_offset: 300, driver_x_offset: 120, driver_z_offset: -90 },
+      'canada': { d: 3, x_offset: 800, z_offset: 200, driver_x_offset: -40, driver_z_offset: -170 },
+      'catalunya': { d: 2.5, x_offset: 800, z_offset: 400, driver_x_offset: 15, driver_z_offset: 7 },
       'hanoi': { d: 2.5, x_offset: 800, z_offset: 400 },
       'hockenheim': { d: 2, x_offset: 800, z_offset: 400 },
-      'hungaroring': { d: 2.5, x_offset: 800, z_offset: 400 },
-      'imola': { d: 2, x_offset: 800, z_offset: 400 },
+      'hungaroring': { d: 2.5, x_offset: 800, z_offset: 400, driver_x_offset: 20, driver_z_offset: 15 }, // good enough
+      'imola': { d: 2, x_offset: 800, z_offset: 400, driver_x_offset: 0, driver_z_offset: -5 },
       'jeddah': { d: 4, x_offset: 800, z_offset: 400 },
-      'las_vegas': { d: 4, x_offset: 800, z_offset: 400 },
+      'las_vegas': { d: 4, x_offset: 800, z_offset: 400, driver_x_offset: 0, driver_z_offset: 10 },
+      'Las_Vegas': { d: 4, x_offset: 800, z_offset: 400 },
       'losail': { d: 2.5, x_offset: 800, z_offset: 400 },
       'melbourne': { d: 3.5, x_offset: 800, z_offset: 400 },
-      'mexico': { d: 2.5, x_offset: 800, z_offset: 600 },
+      'mexico': { d: 3.5, x_offset: 800, z_offset: 600, driver_x_offset: 75, driver_z_offset: 140 }, // this one is simply too bad, will need a lot of adjustments
       'miami': { d: 2, x_offset: 800, z_offset: 400 },
-      'monaco': { d: 2, x_offset: 800, z_offset: 400 },
+      'monaco': { d: 2, x_offset: 800, z_offset: 400, driver_x_offset: -7, driver_z_offset: -12 },
       'montreal': { d: 3, x_offset: 800, z_offset: 200 },
       'monza': { d: 4, x_offset: 800, z_offset: 400 },
       'paul_ricard': { d: 2.5, x_offset: 800, z_offset: 400 },
       'portimao': { d: 2, x_offset: 800, z_offset: 400 },
       'sakhir': { d: 2, x_offset: 800, z_offset: 400 },
       'shanghai': { d: 2, x_offset: 800, z_offset: 400 },
-      'silverstone': { d: 3.5, x_offset: 800, z_offset: 400, driver_x_offset: -30, driver_z_offset: 35 },
+      'silverstone': { d: 3.5, x_offset: 800, z_offset: 400, driver_x_offset: 0, driver_z_offset: 0 },
       'silverstone_short': { d: 2, x_offset: 800, z_offset: 400 },
-      'singapore': { d: 2, x_offset: 800, z_offset: 400 },
+      'singapore': { d: 1, x_offset: 800, z_offset: 400,  driver_x_offset: -8, driver_z_offset: -26 },
       'sochi': { d: 2, x_offset: 800, z_offset: 400 },
-      'spa': { d: 3.5, x_offset: 800, z_offset: 400, driver_x_offset: -26, driver_z_offset: -15 },
-      'suzuka': { d: 2.5, x_offset: 800, z_offset: 400 },
+      'spa': { d: 1.5, x_offset: 800, z_offset: 400, driver_x_offset: 15, driver_z_offset: -5 },
+      'suzuka': { d: 2.5, x_offset: 800, z_offset: 400, driver_x_offset: 0, driver_z_offset: 0 }, // suzuka not perfect yet
       'suzuka_short': { d: 2, x_offset: 800, z_offset: 400 },
-      'texas': { d: 2, x_offset: 800, z_offset: 200 },
-      'texas_short': { d: 2, x_offset: 800, z_offset: 400 },
-      'zandvoort': { d: 2, x_offset: 800, z_offset: 400 }    };
-    
+      'texas': { d: 2, x_offset: 800, z_offset: 200, driver_x_offset: -45, driver_z_offset: -250 }, // Texas not perfect yet      'texas_short': { d: 2, x_offset: 800, z_offset: 400 },
+      'zandvoort': { d: 2, x_offset: 800, z_offset: 400, driver_x_offset: -5, driver_z_offset: 0 },
+      'portimao': { d: 2, x_offset: 800, z_offset: 400, driver_x_offset: 25, driver_z_offset: 30 }, // portugal rotation issues fixed in backend
+    };
     let fetchDataInterval = null;
-    const FETCH_INTERVAL_MS = 16.67;
-    const DRIVER_DOT_RADIUS = 8; // Size of driver dots on the track
+    const FETCH_INTERVAL_MS = 16.67; 
+    const DRIVER_DOT_RADIUS = 12; // Size of driver dots on the track
 
     document.addEventListener("DOMContentLoaded", () => {
       canvas = document.getElementById("trackCanvas");
@@ -559,24 +563,56 @@
       
       // Initial data load
       loadDisplayData();
-      
-      // Set up the interval for regular updates
+        // Set up the interval for regular updates
       fetchDataInterval = setInterval(() => {
         loadDisplayData();
       }, FETCH_INTERVAL_MS);
-    }    async function loadDisplayData() {
+    }
+
+    async function loadDisplayData() {
       try {
-        // Fetch driver data
+        // Fetch manually added driver data for leaderboard
         const response = await fetch("/api/drivers");
         const drivers = await response.json();
 
         allDriverData = drivers;
         const processedDrivers = processDriverData(drivers);        updateLeaderboard(processedDrivers);
         updateFastestLapInfo(processedDrivers);
-        
-        // Draw drivers on track if canvas is ready
-        if (canvas && ctx && trackData) {
-          drawDriversOnTrack(drivers);
+          // Fetch live telemetry data for track visualization
+        try {
+          const liveResponse = await fetch("/api/drivers/live");
+          if (liveResponse.ok) {
+            const liveDrivers = await liveResponse.json();
+            console.log("Live drivers data:", liveDrivers);
+            
+            // Only draw if we have drivers with position data
+            const driversWithPositions = Object.entries(liveDrivers).filter(([name, driver]) => 
+              driver.world_x !== undefined && driver.world_z !== undefined
+            );
+            
+            if (driversWithPositions.length > 0 && canvas && ctx && trackData) {
+              console.log(`Drawing ${driversWithPositions.length} drivers on track`);
+              drawDriversOnTrack(liveDrivers);
+            } else {
+              console.log("No drivers with position data found");
+              // Just draw the track without drivers
+              if (canvas && ctx && trackData) {
+                redrawTrackOnly();
+              }
+            }
+          } else {
+            console.log("Live telemetry endpoint returned error:", liveResponse.status);
+            // Just draw the track without drivers
+            if (canvas && ctx && trackData) {
+              redrawTrackOnly();
+            }
+          }
+        } catch (liveError) {
+          console.log("Live telemetry not available:", liveError);
+          // Just draw the track without drivers
+          if (canvas && ctx && trackData) {
+            redrawTrackOnly();
+          }
         }
       } catch (error) {
         console.error("Error loading display data:", error);
@@ -765,17 +801,18 @@
       const points = trackData.points;
       
       console.log(`Track has ${points.length} points`);
-        if (points.length < 2) {
+      
+      if (points.length < 2) {
         console.warn('Not enough points to draw track');
         displayNoTrackData();
         return;
       }
 
-      // Clear canvas completely
+      // Clear canvas completely for initial track render
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       // Set line style - simple white line (thicker for better visibility)
-      ctx.lineWidth = 4;
+      ctx.lineWidth = currentTrack.toLowerCase() === 'singapore' || 'spa' ? 10 : 6;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = '#FFFFFF';
@@ -814,7 +851,7 @@
         y: (point.y - minY) * scale + centerOffsetY
       }));
 
-      // Draw track as one continuous white line
+      // Draw track as one continuous white line directly to main canvas
       ctx.beginPath();
       centeredPoints.forEach((point, index) => {
         if (index === 0) {
@@ -827,54 +864,63 @@
       // Close the track loop
       if (centeredPoints.length > 0) {
         ctx.lineTo(centeredPoints[0].x, centeredPoints[0].y);
-      }      
+      }
+      
       ctx.stroke();
-        // Store the transformation parameters for driver positioning
+
+      // Store the transformation parameters for driver positioning
       trackData.transformParams = {
         minX: minX,
         minY: minY,
         scale: scale,
         centerOffsetX: centerOffsetX,
-        centerOffsetY: centerOffsetY      };
+        centerOffsetY: centerOffsetY
+      };
+
+      // Mark track as rendered
+      trackRendered = true;
+      console.log("Track rendered as permanent background");
+    }    function redrawTrackOnly() {
+      // Track is already rendered as permanent background, no need to redraw
+      console.log("Track already rendered as background - no redraw needed");
     }
-    
-    function redrawTrackOnly() {
-      if (!trackData || !trackData.points) {
+
+    function redrawCompleteTrack() {
+      // Redraw the entire track from scratch every frame to ensure continuous lines
+      if (!trackData || !trackData.transformParams) {
         return;
       }
-      
+
       const trackParams = TRACK_DICTIONARY[currentTrack.toLowerCase()];
       if (!trackParams) {
         return;
       }
-        const { d, x_offset, z_offset } = trackParams;
-      const points = trackData.points;
-      
-      // Clear canvas completely
+
+      // Clear the entire canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Set line style - simple white line (thicker for better visibility)
-      ctx.lineWidth = 4;
+
+      const { d, x_offset, z_offset } = trackParams;
+      const points = trackData.points;
+      const { minX, minY, scale, centerOffsetX, centerOffsetY } = trackData.transformParams;
+
+      // Set track line style
+      ctx.lineWidth = currentTrack.toLowerCase() === 'singapore' || 'spa' ? 10 : 6;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = '#FFFFFF';
 
-      // Transform coordinates using the exact same algorithm as reference
+      // Transform and center track points
       const transformedPoints = points.map(point => ({
         x: (point.pos_z / d) + x_offset,
         y: (point.pos_x / d) + z_offset
       }));
 
-      // Use stored transformation parameters
-      const { minX, minY, scale, centerOffsetX, centerOffsetY } = trackData.transformParams;
-
-      // Apply centering and scaling to all points
       const centeredPoints = transformedPoints.map(point => ({
         x: (point.x - minX) * scale + centerOffsetX,
         y: (point.y - minY) * scale + centerOffsetY
       }));
 
-      // Draw track as one continuous white line
+      // Draw the complete track as one continuous line
       ctx.beginPath();
       centeredPoints.forEach((point, index) => {
         if (index === 0) {
@@ -890,8 +936,7 @@
       }
       
       ctx.stroke();
-    }
-      function drawDriversOnTrack(driversData) {
+    }function drawDriversOnTrack(driversData) {
       if (!canvas || !ctx || !trackData || !trackData.transformParams) {
         return; // Not ready to draw drivers yet
       }
@@ -900,25 +945,33 @@
       if (!trackParams) {
         return; // No track parameters available
       }
-      
-      // Redraw the track first (without triggering recursive calls)
-      redrawTrackOnly();
-        const { d, x_offset, z_offset, driver_x_offset = 0, driver_z_offset = 0 } = trackParams;
+
+      // Always redraw the complete track first to ensure continuous lines
+      redrawCompleteTrack();
+
+      const { d, x_offset, z_offset, driver_x_offset = 0, driver_z_offset = 0 } = trackParams;
       const { minX, minY, scale, centerOffsetX, centerOffsetY } = trackData.transformParams;
-        // Draw each driver that has position data
-      for (const [driverName, driver] of Object.entries(driversData)) {        // Skip if no position data available
+
+      // Store current positions for next frame's clearing
+      const newDriverPositions = {};
+
+      // Draw each driver that has position data
+      for (const [driverName, driver] of Object.entries(driversData)) {
+        // Skip if no position data available
         if (driver.world_x === undefined || driver.world_z === undefined) {
           continue;
         }
-          // Transform driver coordinates using the same algorithm as the track points
-        // Game's X-coordinate maps to canvas X, Game's Z-coordinate maps to canvas Y (same as track.html)
-        // Apply track-specific driver offset corrections
+
+        // Transform driver coordinates using the same algorithm as the track points
         const rawX = (driver.world_x / d) + x_offset + driver_x_offset;
         const rawY = (driver.world_z / d) + z_offset + driver_z_offset;
         
         // Apply the same scaling and centering as used for the track
         const canvasX = (rawX - minX) * scale + centerOffsetX;
         const canvasY = (rawY - minY) * scale + centerOffsetY;
+
+        // Store position for next frame
+        newDriverPositions[driverName] = { x: canvasX, y: canvasY };
         
         // Get team color for this driver
         const teamColor = TEAM_COLORS[driver.team] || TEAM_COLORS['DEFAULT'];
@@ -928,22 +981,51 @@
         ctx.beginPath();
         ctx.arc(canvasX, canvasY, DRIVER_DOT_RADIUS, 0, 2 * Math.PI);
         ctx.fill();
-        
+
         // Draw white border around the dot
         ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(canvasX, canvasY, DRIVER_DOT_RADIUS, 0, 2 * Math.PI);
         ctx.stroke();
         
-        // Optionally add driver initials or car number
+        // Add driver initials
         const driverInitials = driverName.split(' ').map(part => part[0]).join('').toUpperCase();
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 10px Arial';
+        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(driverInitials, canvasX, canvasY);
       }
+
+      // Update previous positions for next frame
+      previousDriverPositions = newDriverPositions;
+    }function clearPreviousDriverPositions() {
+      // Do nothing - we never clear the track background
+      // Instead, we'll redraw the entire track and then draw all current drivers on top
+      return;
+    }
+
+    // Helper function to calculate distance from a point to a line segment
+    function distanceFromPointToLineSegment(px, py, x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      
+      if (length === 0) {
+        // Line segment is actually a point
+        return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+      }
+      
+      // Calculate the parameter t for the closest point on the line
+      const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (length * length)));
+      
+      // Find the closest point on the line segment
+      const closestX = x1 + t * dx;
+      const closestY = y1 + t * dy;
+      
+      // Return distance from point to closest point on line segment
+      return Math.sqrt((px - closestX) * (px - closestX) + (py - closestY) * (py - closestY));
     }
 
     function displayNoTrackData() {
