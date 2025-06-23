@@ -75,7 +75,7 @@ def initialize_admin_users():
                 "password_hash": get_password_hash(admin["password"]),
                 "is_active": True,
             }
-            logger.info(f"Added admin user: {admin['username']}")
+            logger.debug(f"Added admin user: {admin['username']}")
 
 
 # Initialize additional users on startup
@@ -103,7 +103,7 @@ def create_session(username: str) -> str:
         "last_accessed": datetime.utcnow(),
     }
     active_sessions[session_id] = session_data
-    logger.info(f"Created session for user: {username}")
+    logger.debug(f"Created session for user: {username}")
     return session_id
 
 
@@ -121,7 +121,7 @@ def get_session(session_id: str) -> Optional[Dict[str, Any]]:
     if datetime.utcnow() - created_at > timedelta(seconds=SESSION_MAX_AGE):
         # Session expired, remove it
         del active_sessions[session_id]
-        logger.info(f"Session expired and removed: {session_id}")
+        logger.debug(f"Session expired and removed: {session_id}")
         return None
 
     # Update last accessed time
@@ -134,7 +134,7 @@ def delete_session(session_id: str) -> bool:
     if session_id in active_sessions:
         username = active_sessions[session_id].get("username", "unknown")
         del active_sessions[session_id]
-        logger.info(f"Session deleted for user: {username}")
+        logger.debug(f"Session deleted for user: {username}")
         return True
     return False
 
@@ -151,10 +151,10 @@ def cleanup_expired_sessions():
 
     for session_id in expired_sessions:
         del active_sessions[session_id]
-        logger.info(f"Cleaned up expired session: {session_id}")
+        logger.debug(f"Cleaned up expired session: {session_id}")
 
     if expired_sessions:
-        logger.info(f"Cleaned up {len(expired_sessions)} expired sessions")
+        logger.debug(f"Cleaned up {len(expired_sessions)} expired sessions")
 
 
 def add_admin_user(username: str, password: str) -> bool:
@@ -167,7 +167,7 @@ def add_admin_user(username: str, password: str) -> bool:
         "password_hash": get_password_hash(password),
         "is_active": True,
     }
-    logger.info(f"Added new admin user: {username}")
+    logger.debug(f"Added new admin user: {username}")
     return True
 
 
@@ -177,7 +177,7 @@ def change_password(username: str, new_password: str) -> bool:
         return False
 
     ADMIN_USERS[username]["password_hash"] = get_password_hash(new_password)
-    logger.info(f"Password changed for user: {username}")
+    logger.debug(f"Password changed for user: {username}")
     return True
 
 
