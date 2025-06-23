@@ -352,26 +352,37 @@ class TrackService:
             center_lat = (min(lats) + max(lats)) / 2
             center_lng = (min(lngs) + max(lngs)) / 2
 
-            logger.debug(f"Track center: lat={center_lat}, lng={center_lng}")
-
-            # Convert coordinates to track points
+            logger.debug(
+                f"Track center: lat={center_lat}, lng={center_lng}"
+            )  # Convert coordinates to track points
             points = []
             total_distance = 0.0
 
-            for i, (lng, lat) in enumerate(coordinates):
-                # Convert lat/lng to local coordinates with 90-degree counter-clockwise rotation
-                x, z = self.lat_lng_to_local_coordinates(
-                    lat, lng, center_lat, center_lng, rotation_degrees=90
-                )
+            # Determine rotation based on track name - some tracks shouldn't be rotated
+            rotation_degrees = 90  # Default rotation
+            no_rotation_tracks = [
+                "portimao",
+            ]  # Tracks that shouldn't be rotated
+            fifteen_rotation_tracks = [  # unsure yet
+                "abu_dhabi",
+            ]
+            if track_name.lower() in no_rotation_tracks:
+                rotation_degrees = 0
+            if track_name.lower() in fifteen_rotation_tracks:
+                rotation_degrees = 15
 
-                # Calculate distance along track
+            for i, (lng, lat) in enumerate(coordinates):
+                # Convert lat/lng to local coordinates with track-specific rotation
+                x, z = self.lat_lng_to_local_coordinates(
+                    lat, lng, center_lat, center_lng, rotation_degrees=rotation_degrees
+                )  # Calculate distance along track
                 if i > 0:
                     prev_x, prev_z = self.lat_lng_to_local_coordinates(
                         coordinates[i - 1][1],
                         coordinates[i - 1][0],
                         center_lat,
                         center_lng,
-                        rotation_degrees=-90,
+                        rotation_degrees=rotation_degrees,  # Use same rotation for consistency
                     )
                     distance_increment = math.sqrt(
                         (x - prev_x) ** 2 + (z - prev_z) ** 2
