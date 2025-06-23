@@ -156,16 +156,14 @@
       .status-error {
         background-color: rgba(239, 68, 68, 0.2);
         color: #ef4444;
-      }
-
-      .track-settings {
+      }      .track-settings {
         display: flex;
         align-items: center;
         gap: 10px;
         margin-bottom: 20px;
       }
 
-      .track-settings input {
+      .track-settings select {
         flex: 1;
       }
 
@@ -207,19 +205,15 @@
             <button id="logoutBtn" class="secondary" style="padding: 8px 16px; font-size: 14px;">Logout</button>
           </div>
         </div>
-      </header>
-
-      <div class="admin-section">
+      </header>      <div class="admin-section">
         <h2>Track Settings</h2>
         <div class="current-track" id="currentTrackDisplay">
           Current Track: <span id="currentTrack">Not set</span>
         </div>
         <div class="track-settings">
-          <input
-            type="text"
-            id="trackNameInput"
-            placeholder="Enter track name (e.g., Silverstone, Monaco)"
-          />
+          <select id="trackSelect">
+            <option value="">-- Select Track --</option>
+          </select>
           <button id="setTrackBtn">Set Track</button>
         </div>
         <div id="trackStatus" class="status-message"></div>
@@ -357,13 +351,13 @@
           .addEventListener("click", stopUDPTelemetry);
 
         // Initialize WebSocket connection
-        connectWebSocket();
-
-        // Check authentication and load user info
+        connectWebSocket();        // Check authentication and load user info
         checkAuthStatus();
         loadDefinedUsers();
+        loadAvailableTracks();
         fetchCurrentTrack();
         fetchLapTimes();
+        loadAvailableTracks(); // Load tracks on startup
         // Removed polling since we're using WebSockets for updates
       });      // WebSocket Implementation
       function connectWebSocket() {
@@ -559,15 +553,13 @@
           document.getElementById("currentTrackDisplay").style.display =
             "block";
         }
-      }
-
-      async function setTrackName() {
-        const trackInput = document.getElementById("trackNameInput");
-        const trackName = trackInput.value.trim();
+      }      async function setTrackName() {
+        const trackSelect = document.getElementById("trackSelect");
+        const trackName = trackSelect.value.trim();
         const statusElement = document.getElementById("trackStatus");
 
         if (!trackName) {
-          showStatus(statusElement, "Please enter a track name", false);
+          showStatus(statusElement, "Please select a track", false);
           return;
         }
 
@@ -589,7 +581,7 @@
               `Track set to: ${currentTrack}`,
               true
             );
-            trackInput.value = "";
+            trackSelect.value = ""; // Reset dropdown
             fetchLapTimes();
             loadDefinedUsers();
           } else {
@@ -607,8 +599,7 @@
           showStatus(
             statusElement,
             "Network or server error setting track name",
-            false
-          );
+            false          );
         }
       }
 
@@ -1099,6 +1090,33 @@
           seconds < 10 ? `0${seconds.toFixed(3)}` : seconds.toFixed(3);
 
         return `${minutes}:${formattedSeconds}`;
+      }
+
+      async function loadAvailableTracks() {
+        try {
+          const response = await fetch("/api/tracks");
+          if (response.ok) {
+            const tracks = await response.json();
+            const trackSelect = document.getElementById("trackSelect");
+            
+            // Clear existing options except the first one
+            while (trackSelect.children.length > 1) {
+              trackSelect.removeChild(trackSelect.lastChild);
+            }
+            
+            // Add tracks to dropdown
+            tracks.forEach(track => {
+              const option = document.createElement("option");
+              option.value = track;
+              option.textContent = track.charAt(0).toUpperCase() + track.slice(1).replace(/_/g, " ");
+              trackSelect.appendChild(option);
+            });
+          } else {
+            console.error("Failed to fetch available tracks");
+          }
+        } catch (error) {
+          console.error("Error loading available tracks:", error);
+        }
       }
     </script>
   </body>

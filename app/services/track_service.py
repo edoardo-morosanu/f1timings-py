@@ -10,8 +10,7 @@ import math
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Track files directory
-TRACKS_DIR = Path("tracks")
+# GeoJSON directory
 GEOJSON_DIR = Path("geojson")
 
 
@@ -75,23 +74,14 @@ class TrackService:
         return x, z
 
     def get_available_tracks(self) -> List[str]:
-        """Get list of available track names from both tracks and geojson directories."""
+        """Get list of available track names from geojson directory."""
         available_tracks = []
-
-        # Get tracks from .txt files
-        if TRACKS_DIR.exists():
-            for file_path in TRACKS_DIR.glob("*_racingline.txt"):
-                track_name = file_path.stem.replace("_2020_racingline", "").replace(
-                    "_racingline", ""
-                )
-                available_tracks.append(track_name)
 
         # Get tracks from .geojson files
         if GEOJSON_DIR.exists():
             for file_path in GEOJSON_DIR.glob("*.geojson"):
                 track_name = file_path.stem
-                if track_name not in available_tracks:  # Avoid duplicates
-                    available_tracks.append(track_name)
+                available_tracks.append(track_name)
 
         return sorted(available_tracks)
 
@@ -270,11 +260,11 @@ class TrackService:
         return None
 
     def find_track_file(self, track_name: str) -> Optional[Path]:
-        """Find the racing line file (.txt) or GeoJSON file for a given track name."""
+        """Find the GeoJSON file for a given track name."""
         # Normalize track name (lowercase, replace spaces with underscores)
         normalized_name = track_name.lower().replace(" ", "_")
 
-        # First try to find GeoJSON files
+        # Find GeoJSON files
         if GEOJSON_DIR.exists():
             geojson_patterns = [
                 f"{normalized_name}.geojson",
@@ -289,25 +279,8 @@ class TrackService:
                     )
                     return file_path
 
-        # Then try to find traditional .txt racing line files
-        if TRACKS_DIR.exists():
-            txt_patterns = [
-                f"{normalized_name}_2020_racingline.txt",
-                f"{normalized_name}_racingline.txt",
-                f"{track_name.lower()}_2020_racingline.txt",
-                f"{track_name.lower()}_racingline.txt",
-            ]
-
-            for pattern in txt_patterns:
-                file_path = TRACKS_DIR / pattern
-                if file_path.exists():
-                    logger.debug(
-                        f"Found .txt track file for '{track_name}': {file_path}"
-                    )
-                    return file_path
-
         logger.warning(
-            f"No track file found for '{track_name}'. Tried GeoJSON and .txt patterns"
+            f"No track file found for '{track_name}'. Tried GeoJSON patterns"
         )
         return None
 
@@ -421,75 +394,8 @@ class TrackService:
             return None
 
     def parse_track_file(self, file_path: Path) -> Optional[TrackData]:
-        """Parse a track file (.txt or .geojson) and return TrackData."""
-        if file_path.suffix.lower() == ".geojson":
-            return self.parse_geojson_file(file_path)
-        else:
-            return self.parse_txt_track_file(file_path)
-
-    def parse_txt_track_file(self, file_path: Path) -> Optional[TrackData]:
-        """Parse a track racing line file and return TrackData."""
-        try:
-            points = []
-            track_info = ""
-
-            with open(file_path, "r", encoding="utf-8") as file:
-                lines = file.readlines()
-
-                if len(lines) < 3:
-                    logger.error(f"Track file {file_path} has insufficient lines")
-                    return None
-
-                # First line contains track metadata
-                track_info = lines[0].strip().strip('"')
-
-                # Second line contains headers (skip it)
-                headers = lines[1].strip().strip('"').split('","')
-                logger.debug(f"Track file headers: {headers}")
-
-                # Parse data lines
-                for i, line in enumerate(lines[2:], start=3):
-                    line = line.strip()
-                    if not line:
-                        continue
-
-                    try:
-                        # Split CSV data
-                        values = line.split(",")
-                        if len(values) >= 6:
-                            point = TrackPoint(
-                                dist=float(values[0]),
-                                pos_z=float(values[1]),
-                                pos_x=float(values[2]),
-                                pos_y=float(values[3]),
-                                drs=int(values[4]),
-                                sector=int(values[5]),
-                            )
-                            points.append(point)
-                    except (ValueError, IndexError) as e:
-                        logger.warning(f"Error parsing line {i} in {file_path}: {e}")
-                        continue
-
-            if not points:
-                logger.error(f"No valid track points found in {file_path}")
-                return None
-
-            track_name = file_path.stem.replace("_2020_racingline", "").replace(
-                "_racingline", ""
-            )
-
-            track_data = TrackData(
-                name=track_name, track_info=track_info, points=points
-            )
-
-            logger.debug(
-                f"Successfully parsed track '{track_name}' with {len(points)} points"
-            )
-            return track_data
-
-        except Exception as e:
-            logger.error(f"Error parsing track file {file_path}: {e}")
-            return None
+        """Parse a GeoJSON track file and return TrackData."""
+        return self.parse_geojson_file(file_path)
 
     async def load_track_data(self, track_name: str) -> Optional[TrackData]:
         """Load track data for a given track name, with caching."""
