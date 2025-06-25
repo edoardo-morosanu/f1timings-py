@@ -1,5 +1,9 @@
 fastapi
 uvicorn[standard]
 python-dotenv
-python-multipart # Often needed by FastAPI for form data, good to have
-aiofiles # For async file operations during export
+python-multipart
+aiofiles
+python-jose[cryptography]
+bcrypt
+itsdangerous
+f1-24-telemetry # May need: pip install git+https://github.com/xavierdubuc/f1-24-telemetry.git
