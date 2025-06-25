@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Dict, List
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse, Response
 
@@ -10,10 +10,11 @@ from app.models.models import (
     ExportResponse,
     TrackNameInput,
     TrackNameResponse,
-    driver_to_response,
+    TrackData,
+    driver_to_response,  # Re-enabled for converting manual lap times
 )
 from app.services.crud import (
-    get_all_drivers,
+    # get_all_drivers, # No longer used by this endpoint
     add_or_update_lap_time,
     delete_driver_lap_time,
     get_track,
@@ -22,7 +23,9 @@ from app.services.crud import (
     state_lock,
 )
 from app.utils.helpers import generate_csv_content, update_overall_fastest_lap
+from app.services.track_service import track_service
 from app.dependencies.auth import require_auth
+from app.api.telemetry import get_live_driver_data_for_api  # Import new helper
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -32,13 +35,34 @@ router = APIRouter()
 
 
 @router.get("/api/drivers", response_model=Dict[str, DriverResponse], tags=["Drivers"])
-async def get_drivers_endpoint(current_user=Depends(require_auth)):
-    """Gets all current drivers and their fastest lap times."""
-    drivers_internal = await get_all_drivers()
-    # Convert internal Driver model to the DriverResponse model for the API
+async def get_drivers_endpoint():
+    """Gets all current drivers and their live telemetry data (name, team, last lap time)."""
+    # FUTURE: Fetch live driver data compiled from telemetry stores (for fastest lap times from game)
+    # drivers_response = await get_live_driver_data_for_api()
+    # return drivers_response
+
+    # For now, return manually added times from admin panel
+    async with state_lock:
+        drivers_copy = {
+            name: driver.model_copy(deep=True)
+            for name, driver in app_data.drivers.items()
+        }
+
+    # Convert internal driver objects to API response format
     drivers_response = {
-        name: driver_to_response(driver) for name, driver in drivers_internal.items()
+        name: driver_to_response(driver) for name, driver in drivers_copy.items()
     }
+
+    return drivers_response
+
+
+@router.get(
+    "/api/drivers/live", response_model=Dict[str, DriverResponse], tags=["Drivers"]
+)
+async def get_live_drivers_endpoint():
+    """Gets live telemetry data from the game (positions, teams, etc.) for track visualization."""
+    # Fetch live driver data compiled from telemetry stores
+    drivers_response = await get_live_driver_data_for_api()
     return drivers_response
 
 
@@ -93,10 +117,30 @@ async def delete_lap_time_endpoint(
 
 
 @router.get("/api/track", response_model=TrackNameResponse, tags=["Track"])
-async def get_track_name_endpoint(current_user=Depends(require_auth)):
-    """Gets the currently set track name."""
-    track_name = await get_track()
-    return TrackNameResponse(name=track_name or "")  # Return empty string if None
+async def get_track_name_endpoint():
+    """Gets the currently set track name with case matching to available tracks (no auth required for display)."""
+    stored_track_name = await get_track()
+
+    if not stored_track_name:
+        return TrackNameResponse(name="")
+
+    # Try to find a matching track name from available tracks
+    matched_track_name = track_service.find_matching_track_name(stored_track_name)
+
+    if matched_track_name:
+        # Update the stored track name to match the actual available track
+        if matched_track_name != stored_track_name:
+            logger.debug(
+                f"Updating stored track name from '{stored_track_name}' to '{matched_track_name}'"
+            )
+            from app.models.models import TrackNameInput
+
+            await set_track(TrackNameInput(name=matched_track_name))
+        return TrackNameResponse(name=matched_track_name)
+    else:
+        # Return the original name if no match found
+        logger.warning(f"No matching track found for stored name '{stored_track_name}'")
+        return TrackNameResponse(name=stored_track_name)
 
 
 @router.post(
@@ -105,11 +149,51 @@ async def get_track_name_endpoint(current_user=Depends(require_auth)):
 async def set_track_name_endpoint(
     track_input: TrackNameInput, current_user=Depends(require_auth)
 ):
-    """Sets the track name."""
+    """Sets the track name with case matching to available tracks."""
     if not track_input.name or not track_input.name.strip():
         raise HTTPException(status_code=400, detail="Track name cannot be empty")
-    updated_track_name = await set_track(track_input)
-    return TrackNameResponse(name=updated_track_name)
+
+    input_name = track_input.name.strip()
+
+    # Try to find a matching track name from available tracks
+    matched_track_name = track_service.find_matching_track_name(input_name)
+
+    if matched_track_name:
+        # Use the matched track name
+        from app.models.models import TrackNameInput
+
+        updated_track_name = await set_track(TrackNameInput(name=matched_track_name))
+        logger.debug(
+            f"Set track to matched name: '{input_name}' -> '{matched_track_name}'"
+        )
+        return TrackNameResponse(name=updated_track_name)
+    else:
+        # No match found, but still allow setting (maybe it's a new track)
+        updated_track_name = await set_track(track_input)
+        logger.warning(f"No matching track found for '{input_name}', using as-is")
+        return TrackNameResponse(name=updated_track_name)
+
+
+@router.get("/api/track/data", response_model=TrackData, tags=["Track"])
+async def get_track_data_endpoint(track: str = None):
+    """Gets the track data for the specified track or currently set track (no auth required for display)."""
+    track_name = track if track else await get_track()
+    if not track_name:
+        raise HTTPException(status_code=404, detail="No track name set or specified")
+
+    track_data = await track_service.load_track_data(track_name)
+    if not track_data:
+        raise HTTPException(
+            status_code=404, detail=f"Track data not found for '{track_name}'"
+        )
+
+    return track_data
+
+
+@router.get("/api/tracks", response_model=List[str], tags=["Track"])
+async def get_available_tracks_endpoint():
+    """Gets list of available tracks (no auth required for display)."""
+    return track_service.get_available_tracks()
 
 
 @router.get("/api/export", tags=["Export"])
@@ -141,7 +225,7 @@ async def export_lap_times_endpoint(current_user=Depends(require_auth)):
     try:
         # Generate CSV content
         filename, csv_content = await generate_csv_content(drivers_copy, current_track)
-        logger.info(f"Export successful. Filename: {filename}")
+        logger.debug(f"Export successful. Filename: {filename}")
 
         # Return CSV as downloadable file
         return Response(
@@ -155,3 +239,35 @@ async def export_lap_times_endpoint(current_user=Depends(require_auth)):
             status_code=500,
             content={"error": f"An unexpected error occurred during export: {e}"},
         )
+
+
+# @router.get("/api/session", tags=["Session"])
+# async def get_session_endpoint():
+#     """Temporary endpoint to get current session data (no auth required)."""
+#     try:
+#         # Import here to avoid circular imports
+#         from app.api.telemetry import enhanced_session_data_store
+
+#         async with state_lock:
+#             session_data = {
+#                 "track_name": app_data.track_name,
+#                 "drivers_count": len(app_data.drivers),
+#                 "drivers": {
+#                     name: {
+#                         "name": driver.name,
+#                         "team": driver.team,
+#                         "fastest_lap": driver.fastest_lap,
+#                         "position": driver.position,
+#                         "car_number": driver.car_number
+#                     }
+#                     for name, driver in app_data.drivers.items()
+#                 },
+#                 "session_info": enhanced_session_data_store if enhanced_session_data_store else None
+#             }
+
+#         logger.debug("Session data retrieved successfully")
+#         return session_data
+
+#     except Exception as e:
+#         logger.exception(f"Error retrieving session data: {e}")
+#         raise HTTPException(status_code=500, detail="Failed to retrieve session data")

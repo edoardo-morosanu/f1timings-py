@@ -1,8 +1,13 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Dict, List
+from dotenv import load_dotenv
 
 import uvicorn
+
+# Load environment variables first
+load_dotenv()
 from fastapi import FastAPI, HTTPException, Request, Path
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +21,7 @@ from app.models.models import (
     LapTimeDeleteInput,
     TrackNameInput,
     TrackNameResponse,
+    TrackData,
     ExportResponse,
     DriverResponse,
     User,
@@ -38,13 +44,24 @@ from app.services.crud import (
 )
 from app.utils.helpers import generate_csv_content, update_overall_fastest_lap
 from app.services.websocket import ConnectionManager
+from app.services.track_service import track_service
 from app.dependencies.auth import check_admin_auth_middleware, get_current_user
 
-# Configure logging
+# Configure logging based on DEBUG environment variable
+debug_mode = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes", "on")
+log_level = logging.DEBUG if debug_mode else logging.INFO
+
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Silence noisy loggers when not in debug mode
+if not debug_mode:
+    logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn").setLevel(logging.WARNING)
+    logging.getLogger("f1_24_telemetry").setLevel(logging.WARNING)
 
 # Create the WebSocket connection manager
 manager = ConnectionManager()
@@ -133,11 +150,13 @@ async def general_exception_handler(request: Request, exc: Exception):
 from app.api.users import router as users_router
 from app.api.drivers import router as drivers_router
 from app.api.auth import router as auth_router
+from app.api.telemetry import telemetry_router
 
 # --- Include Routers ---
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(drivers_router)
+app.include_router(telemetry_router, prefix="/api/telemetry", tags=["Telemetry"])
 
 # You can still add additional routes here if necessary
 
